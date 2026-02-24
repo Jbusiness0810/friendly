@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+:root {
+  --friendly-green: #4CAF50;
+  --friendly-green-light: #81C784;
+  --friendly-green-dark: #388E3C;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+  background-color: #FAFAFA;
+  color: #212121;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
