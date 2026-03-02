@@ -1,94 +1,57 @@
-import { For, Show, type Component } from "solid-js";
-import { useAuth } from "../stores/auth";
-import { getUserInitials, allBadges } from "../types";
-import { calculateLevel, pointsToNextLevel } from "../services/gamification";
-import { StatCard, LevelProgress } from "../components/StatCard";
-import { BadgeCard } from "../components/BadgeCard";
+import type { Component } from "solid-js";
 
-const ProfilePage: Component = () => {
-  const { currentUser, signOut } = useAuth();
-
-  const user = () => currentUser();
-  const initials = () => user() ? getUserInitials(user()!.displayName) : "";
-  const level = () => calculateLevel(user()?.points ?? 0);
-  const progress = () => pointsToNextLevel(user()?.points ?? 0);
-
-  const earnedBadges = () => {
-    const ids = new Set(user()?.badges ?? []);
-    return allBadges.filter((b) => ids.has(b.id));
-  };
-
+const Profile: Component = () => {
   return (
-    <div class="flex flex-col gap-6 pb-6">
-      {/* Header */}
-      <div class="flex flex-col items-center pt-4 gap-3">
-        <div class="w-24 h-24 rounded-full bg-green-100 flex items-center justify-center">
-          <span class="text-3xl font-bold text-green-600">{initials()}</span>
+    <>
+      <div class="nav-header">
+        <h1>Profile</h1>
+        <div class="nav-icon" style="font-size:14px">⚙</div>
+      </div>
+      <div class="content">
+        <div class="profile-header">
+          <div class="avatar-circle" style="width:80px;height:80px;font-size:28px;margin:0 auto 12px">JT</div>
+          <h2>Jordan Taylor</h2>
+          <div class="bio">Coffee lover, morning runner, and amateur chef. Always looking for new friends in the neighborhood!</div>
         </div>
-        <h1 class="text-xl font-bold">{user()?.displayName}</h1>
-        <Show when={user()?.bio}>
-          <p class="text-sm text-gray-500 text-center px-10">{user()!.bio}</p>
-        </Show>
-      </div>
 
-      {/* Stats grid */}
-      <div class="grid grid-cols-3 gap-3 px-4">
-        <StatCard value={String(user()?.circleIds.length ?? 0)} label="Circles" />
-        <StatCard value="0" label="Events" />
-        <StatCard value="0" label="Friends" />
-      </div>
+        <div class="stats-grid">
+          <div class="stat-card"><div class="value">4</div><div class="label">Circles</div></div>
+          <div class="stat-card"><div class="value">12</div><div class="label">Events</div></div>
+          <div class="stat-card"><div class="value">8</div><div class="label">Friends</div></div>
+        </div>
 
-      {/* Level progress */}
-      <LevelProgress
-        level={level()}
-        points={user()?.points ?? 0}
-        progress={progress().progress}
-      />
-
-      {/* Interests */}
-      <Show when={(user()?.interests.length ?? 0) > 0}>
-        <div class="px-4">
-          <h2 class="font-semibold mb-2">Interests</h2>
-          <div class="flex flex-wrap gap-2">
-            <For each={user()?.interests}>
-              {(interest) => (
-                <span class="text-xs px-3 py-1.5 bg-green-50 text-green-700 rounded-full">
-                  {interest}
-                </span>
-              )}
-            </For>
+        <div style="padding:12px;background:#F5F5F5;border-radius:var(--radius);margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:600">Level 3</span>
+            <span style="font-size:13px;color:var(--text-secondary)">340 pts</span>
+          </div>
+          <div style="height:6px;background:#E0E0E0;border-radius:3px;margin-top:8px">
+            <div style="height:6px;background:var(--green);border-radius:3px;width:40%"></div>
           </div>
         </div>
-      </Show>
 
-      {/* Badges */}
-      <Show when={earnedBadges().length > 0}>
-        <div class="px-4">
-          <div class="flex justify-between items-center mb-2">
-            <h2 class="font-semibold">Badges</h2>
-            <span class="text-xs text-gray-400">
-              {earnedBadges().length}/{allBadges.length}
-            </span>
-          </div>
-          <div class="flex gap-3 overflow-x-auto pb-1">
-            <For each={earnedBadges()}>
-              {(badge) => <BadgeCard badge={badge} />}
-            </For>
-          </div>
+        <div class="section-header"><h2>Interests</h2></div>
+        <div class="interest-tags" style="margin-bottom:16px">
+          <span class="interest-tag">Running</span>
+          <span class="interest-tag">Cooking</span>
+          <span class="interest-tag">Reading</span>
+          <span class="interest-tag">Yoga</span>
+          <span class="interest-tag">Coffee</span>
+          <span class="interest-tag">Hiking</span>
         </div>
-      </Show>
 
-      {/* Sign out */}
-      <div class="px-4 mt-4">
-        <button
-          class="w-full py-2.5 rounded-lg border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors"
-          onClick={signOut}
-        >
-          Sign Out
-        </button>
+        <div class="section-header"><h2>Badges</h2><a href="#">5/14</a></div>
+        <div class="badge-scroll">
+          <div class="badge-item"><div class="badge-icon">🌱</div><div class="badge-name">Circle Starter</div></div>
+          <div class="badge-item"><div class="badge-icon">🎪</div><div class="badge-name">Event Explorer</div></div>
+          <div class="badge-item"><div class="badge-icon">🤝</div><div class="badge-name">First Connection</div></div>
+          <div class="badge-item"><div class="badge-icon">🔥</div><div class="badge-name">Week Warrior</div></div>
+          <div class="badge-item"><div class="badge-icon">🌸</div><div class="badge-name">Spring Bloom</div></div>
+        </div>
+        <div style="height:20px"></div>
       </div>
-    </div>
+    </>
   );
 };
 
-export default ProfilePage;
+export default Profile;

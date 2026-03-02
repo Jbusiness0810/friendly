@@ -1,84 +1,60 @@
-import { createSignal, For, Show, type Component } from "solid-js";
-import { useAuth } from "../stores/auth";
-import { useCircles } from "../stores/circles";
-import { CircleCard } from "../components/CircleCard";
-import { allCircleCategories, circleCategoryIcons, type CircleCategory } from "../types";
+import { createSignal, type Component } from "solid-js";
 
-const CirclesPage: Component = () => {
-  const { currentUser } = useAuth();
-  const { circles, joinCircle, leaveCircle } = useCircles();
-  const [selectedCategory, setSelectedCategory] = createSignal<CircleCategory | "All">("All");
+const categories = ["All", "Fitness", "Food", "Books", "Outdoors", "Games"] as const;
 
-  const filteredCircles = () => {
-    const cat = selectedCategory();
-    if (cat === "All") return circles();
-    return circles().filter((c) => c.category === cat);
+const circles = [
+  { icon: "🏃", name: "Morning Runners", desc: "Early morning running for all levels", members: "18/20", category: "Fitness" },
+  { icon: "🍳", name: "Cooking Circle", desc: "Weekly potlucks and recipe swaps", members: "12/15", category: "Food" },
+  { icon: "📚", name: "Page Turners", desc: "Monthly book club with diverse genres", members: "9/12", category: "Books" },
+  { icon: "🎨", name: "Art Walk", desc: "Explore local galleries and street art", members: "7/10", category: "Arts" },
+  { icon: "🎮", name: "Board Game Night", desc: "Weekly game nights at rotating homes", members: "14/16", category: "Games" },
+  { icon: "🐕", name: "Dog Walker Crew", desc: "Morning and evening group dog walks", members: "11/20", category: "Pets" },
+];
+
+const Circles: Component = () => {
+  const [selected, setSelected] = createSignal("All");
+
+  const filtered = () => {
+    if (selected() === "All") return circles;
+    return circles.filter((c) => c.category === selected());
   };
 
-  const isMember = (circleId: string) =>
-    currentUser()?.circleIds.includes(circleId) ?? false;
-
   return (
-    <div class="flex flex-col gap-4 pb-6">
-      <div class="px-4 pt-2">
-        <h1 class="text-2xl font-bold">Circles</h1>
-        <p class="text-sm text-gray-500 mt-1">Find your people</p>
+    <>
+      <div class="nav-header">
+        <h1>Circles</h1>
+        <div class="nav-icon">+</div>
       </div>
-
-      {/* Category filter pills */}
-      <div class="flex gap-2 overflow-x-auto px-4 pb-1">
-        <button
-          class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
-          classList={{
-            "bg-green-500 text-white": selectedCategory() === "All",
-            "bg-gray-100 text-gray-600 hover:bg-gray-200": selectedCategory() !== "All",
-          }}
-          onClick={() => setSelectedCategory("All")}
-        >
-          All
-        </button>
-        <For each={allCircleCategories}>
-          {(cat) => (
-            <button
-              class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
-              classList={{
-                "bg-green-500 text-white": selectedCategory() === cat,
-                "bg-gray-100 text-gray-600 hover:bg-gray-200": selectedCategory() !== cat,
-              }}
-              onClick={() => setSelectedCategory(cat)}
+      <div class="content">
+        <div class="h-scroll" style="margin-bottom:16px">
+          {categories.map((cat) => (
+            <span
+              class="interest-tag"
+              style={
+                selected() === cat
+                  ? "background:var(--green);color:white;padding:6px 14px;cursor:pointer"
+                  : "padding:6px 14px;cursor:pointer"
+              }
+              onClick={() => setSelected(cat)}
             >
-              {circleCategoryIcons[cat]} {cat}
-            </button>
-          )}
-        </For>
-      </div>
+              {cat}
+            </span>
+          ))}
+        </div>
 
-      {/* Circle list */}
-      <div class="flex flex-col gap-3 px-4">
-        <Show
-          when={filteredCircles().length > 0}
-          fallback={
-            <div class="text-center py-12 text-gray-400">
-              <p class="text-4xl mb-2">🔍</p>
-              <p class="font-medium">No circles in this category</p>
-              <p class="text-sm">Be the first to create one!</p>
+        {filtered().map((c) => (
+          <div class="card" style="display:flex;gap:12px;align-items:center">
+            <div class="circle-icon" style="min-width:44px;height:44px;background:var(--green);color:white;border-radius:12px">{c.icon}</div>
+            <div style="flex:1">
+              <h3 style="font-size:15px">{c.name}</h3>
+              <div style="font-size:12px;color:var(--text-secondary)">{c.desc}</div>
+              <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">👥 {c.members} · {c.category}</div>
             </div>
-          }
-        >
-          <For each={filteredCircles()}>
-            {(circle) => (
-              <CircleCard
-                circle={circle}
-                isMember={isMember(circle.id)}
-                onJoin={() => joinCircle(circle.id, currentUser()?.id ?? "")}
-                onLeave={() => leaveCircle(circle.id, currentUser()?.id ?? "")}
-              />
-            )}
-          </For>
-        </Show>
+          </div>
+        ))}
       </div>
-    </div>
+    </>
   );
 };
 
-export default CirclesPage;
+export default Circles;

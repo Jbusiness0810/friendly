@@ -1,23 +1,23 @@
 /* @refresh reload */
 import { render } from "solid-js/web";
-import { Router, useRoutes } from "@solidjs/router";
+import { Router, Route } from "@solidjs/router";
 import App from "./App";
-import routes from "./routes";
+import Home from "./pages/Home";
+import Circles from "./pages/Circles";
+import Events from "./pages/Events";
+import Matches from "./pages/Matches";
+import Profile from "./pages/Profile";
 import "./index.css";
-
-const root = document.getElementById("root");
-
-if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
-  throw new Error("Root element not found. Did you forget to add it to your index.html?");
-}
-
-const Routes = useRoutes(routes);
 
 render(
   () => (
     <Router root={App}>
-      <Routes />
+      <Route path="/" component={Home} />
+      <Route path="/circles" component={Circles} />
+      <Route path="/events" component={Events} />
+      <Route path="/matches" component={Matches} />
+      <Route path="/profile" component={Profile} />
     </Router>
   ),
-  root!
+  document.getElementById("root")!
 );
