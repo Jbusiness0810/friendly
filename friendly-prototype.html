@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Friendly — Interactive Prototype</title>
+    <style>
+        :root {
+            --primary: #007AFF;
+            --primary-light: #5AC8FA;
+            --primary-dark: #0051D5;
+            --primary-bg: #E5E5EA;
+            --bg: #FFFFFF;
+            --card: #FFFFFF;
+            --text: #000000;
+            --text-secondary: #8E8E93;
+            --border: #C6C6C8;
+            --shadow: none;
+            --radius: 12px;
+            --blue: #007AFF;
+            --bubble-received: #E9E9EB;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        /* === PAGE BACKGROUND === */
+        html, body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', sans-serif;
+            background: #E8E8ED;
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 20px;
+            overflow: auto;
+        }
+
+        /* === DEVICE FRAME === */
+        .device-frame {
+            position: relative;
+            width: 402px;
+            height: 868px;
+            background: #1A1A1C;
+            border-radius: 52px;
+            padding: 6px;
+            box-shadow:
+                0 0 0 1px #333,
+                0 20px 60px rgba(0,0,0,0.35),
+                inset 0 0 2px rgba(255,255,255,0.05);
+            flex-shrink: 0;
+        }
+        .device-screen {
+            width: 390px;
+            height: 856px;
+            background: var(--bg);
+            border-radius: 48px;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        .dynamic-island {
+            position: absolute;
+            top: 11px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 126px;
+            height: 36px;
+            background: #000;
+            border-radius: 20px;
+            z-index: 200;
+        }
+        .home-indicator {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 134px;
+            height: 5px;
+            background: #000;
+            border-radius: 3px;
+            z-index: 200;
+        }
+
+        /* === INSPECT TOGGLE === */
+        .inspect-toggle {
+            position: absolute;
+            top: -42px;
+            right: 0;
+            z-index: 300;
+            height: 32px;
+            padding: 0 12px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            background: white;
+            color: #666;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .inspect-toggle:hover { border-color: var(--blue); color: var(--blue); }
+        .inspect-toggle.active { background: var(--blue); color: white; border-color: var(--blue); }
+        .inspect-toggle svg { width: 14px; height: 14px; }
+
+        /* === ONBOARDING TOGGLE === */
+        .onboarding-toggle {
+            position: absolute;
+            top: -42px;
+            left: 0;
+            z-index: 300;
+            height: 32px;
+            padding: 0 12px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            background: white;
+            color: #666;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .onboarding-toggle:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* === STATUS BAR === */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 56px 28px 8px;
+            font-size: 15px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .status-time { min-width: 54px; letter-spacing: 0.5px; }
+        .status-icons { display: flex; align-items: center; gap: 6px; }
+        .status-icons svg { display: block; }
+
+        /* === NAV HEADER === */
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 20px 14px;
+            flex-shrink: 0;
+        }
+        .nav-header h1 { font-size: 28px; font-weight: 700; }
+        .nav-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            cursor: pointer;
+        }
+        .nav-icon:active { transform: scale(0.9); background: rgba(0,0,0,0.05); }
+
+        /* === TAB BAR === */
+        .tab-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0 28px;
+            background: var(--card);
+            border-top: 0.5px solid var(--border);
+            z-index: 100;
+        }
+        .tab {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 10px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .tab.active { color: var(--primary); }
+        .tab svg { width: 24px; height: 24px; }
+        .tab:active { opacity: 0.6; }
+
+        /* === SCREENS === */
+        .screen {
+            display: none;
+            flex: 1;
+            padding-bottom: 80px;
+            animation: fadeIn 0.3s ease;
+            overflow-y: auto;
+        }
+        .screen.active { display: flex; flex-direction: column; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* === CONTENT === */
+        .content { padding: 0 20px; flex: 1; }
+
+        /* === CARDS === */
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .card:active { transform: scale(0.98); transition: transform 0.1s; }
+
+        /* === SECTION HEADER === */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 16px 0 10px;
+        }
+        .section-header h2 { font-size: 17px; font-weight: 600; }
+        .section-header a { font-size: 13px; color: var(--primary); text-decoration: none; }
+
+        /* === INTEREST TAGS === */
+        .interest-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        .interest-tag {
+            font-size: 12px;
+            padding: 0;
+            background: none;
+            color: var(--text-secondary);
+            border-radius: 0;
+        }
+        .interest-tag:active { opacity: 0.7; }
+
+        /* === WELCOME TEXT === */
+        .welcome-text { font-size: 14px; color: var(--text-secondary); margin-bottom: 2px; }
+        .neighborhood-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* ================================================================ */
+        /* HOME — DISCOVER FEED                                             */
+        /* ================================================================ */
+        .discover-card {
+            background: var(--card);
+            border-radius: 0;
+            box-shadow: none;
+            padding: 12px 20px;
+            margin-bottom: 0;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            border-bottom: 0.5px solid var(--border);
+        }
+        .discover-card:active { background: #F2F2F7; }
+        .discover-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #C7C7CC;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 600;
+            color: #FFFFFF;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .avatar-photo {
+            background: linear-gradient(135deg, #A8D8EA, #AA96DA);
+            color: #FFFFFF;
+        }
+        .verified-badge {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 18px;
+            height: 18px;
+            background: var(--blue);
+            border-radius: 50%;
+            border: 2px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .verified-badge svg { width: 10px; height: 10px; }
+        .discover-info { flex: 1; min-width: 0; }
+        .discover-name { font-size: 15px; font-weight: 600; }
+        .discover-location { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+        .discover-bio { font-size: 13px; color: var(--text-secondary); margin-top: 4px; line-height: 1.35; }
+        .discover-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .discover-tags { display: flex; gap: 4px; }
+        .discover-tags .interest-tag { font-size: 12px; padding: 0; }
+        .wave-btn {
+            padding: 6px 0;
+            background: none;
+            color: var(--primary);
+            border: none;
+            border-radius: 0;
+            font-size: 15px;
+            font-weight: 400;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .wave-btn:active { opacity: 0.5; }
+
+        /* ================================================================ */
+        /* EVENTS                                                           */
+        /* ================================================================ */
+        .event-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 14px 20px;
+            background: var(--card);
+            border-radius: 0;
+            box-shadow: none;
+            margin-bottom: 0;
+            border-bottom: 0.5px solid var(--border);
+        }
+        .event-row:active { background: #F2F2F7; }
+        .event-date { text-align: center; min-width: 44px; }
+        .event-date .month { font-size: 11px; color: #FF3B30; font-weight: 600; text-transform: uppercase; }
+        .event-date .day { font-size: 22px; font-weight: 700; }
+        .event-info { flex: 1; }
+        .event-info h3 { font-size: 14px; margin-bottom: 2px; }
+        .event-info .meta { font-size: 12px; color: var(--text-secondary); }
+        .event-badge {
+            font-size: 12px;
+            font-weight: 500;
+            padding: 0;
+            background: none;
+            color: var(--text-secondary);
+            border-radius: 0;
+            white-space: nowrap;
+        }
+        .fab { display: none; }
+
+        /* ================================================================ */
+        /* CHAT — iMESSAGE STYLE                                           */
+        /* ================================================================ */
+        .chat-list { padding: 0; }
+        .chat-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 12px 20px;
+            border-bottom: 0.5px solid var(--border);
+            cursor: pointer;
+        }
+        .chat-row:active { background: #F0F0F0; }
+        .chat-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #C7C7CC;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            font-weight: 700;
+            color: #FFFFFF;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .chat-avatar.group {
+            background: #E5E5EA;
+            color: #000;
+        }
+        .chat-body { flex: 1; min-width: 0; }
+        .chat-name { font-size: 15px; font-weight: 600; }
+        .chat-preview { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+        .chat-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+        .chat-time { font-size: 12px; color: var(--text-secondary); }
+        .chat-unread {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--primary);
+        }
+
+        /* Conversation view */
+        .conversation { display: none; flex-direction: column; height: 100%; }
+        .conversation.active { display: flex; }
+        .convo-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px 10px;
+            border-bottom: 0.5px solid var(--border);
+            flex-shrink: 0;
+        }
+        .convo-back {
+            background: none;
+            border: none;
+            color: var(--blue);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+        }
+        .convo-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #C7C7CC;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: #FFFFFF;
+        }
+        .convo-name { font-size: 15px; font-weight: 600; }
+        .convo-verified { color: var(--blue); font-size: 12px; margin-left: 2px; }
+        .convo-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .msg-time {
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin: 8px 0;
+        }
+        .msg {
+            max-width: 75%;
+            padding: 9px 14px;
+            font-size: 15px;
+            line-height: 1.35;
+            word-wrap: break-word;
+        }
+        .msg-sent {
+            background: var(--blue);
+            color: white;
+            border-radius: 18px 18px 4px 18px;
+            align-self: flex-end;
+        }
+        .msg-received {
+            background: var(--bubble-received);
+            color: #000;
+            border-radius: 18px 18px 18px 4px;
+            align-self: flex-start;
+        }
+        .convo-input {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px 28px;
+            border-top: 0.5px solid var(--border);
+            background: var(--bg);
+            flex-shrink: 0;
+        }
+        .convo-input input {
+            flex: 1;
+            padding: 10px 16px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 15px;
+            outline: none;
+            background: white;
+            font-family: inherit;
+        }
+        .convo-input input:focus { border-color: var(--blue); }
+        .send-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--blue);
+            color: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .send-btn:active { transform: scale(0.9); }
+
+        /* Report button */
+        .report-hint {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .report-hint a { color: #E53935; text-decoration: none; font-weight: 500; }
+
+        /* ================================================================ */
+        /* PROFILE                                                          */
+        /* ================================================================ */
+        .profile-header { text-align: center; padding: 16px 20px; }
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #C7C7CC;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 8px;
+            font-size: 28px;
+            font-weight: 700;
+            color: #FFFFFF;
+            position: relative;
+        }
+        .profile-verified {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: var(--blue);
+            font-weight: 500;
+            margin-top: 4px;
+        }
+        .profile-verified svg { width: 14px; height: 14px; }
+        .profile-name { font-size: 22px; font-weight: 700; margin-top: 4px; }
+        .profile-bio { font-size: 14px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; padding: 0 10px; }
+        .profile-location { font-size: 13px; color: var(--text-secondary); margin-top: 6px; }
+        .profile-stats {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+        .profile-stats span { font-weight: 600; color: var(--text); }
+        .settings-list { margin-top: 8px; }
+        .settings-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 20px;
+            border-bottom: 0.5px solid var(--border);
+            cursor: pointer;
+            font-size: 15px;
+        }
+        .settings-item:active { background: #F0F0F0; }
+        .settings-item .chevron { color: #C7C7CC; font-size: 14px; }
+        .settings-item.danger { color: #E53935; }
+
+        /* ================================================================ */
+        /* ONBOARDING                                                       */
+        /* ================================================================ */
+        .onboarding-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 150;
+            background: white;
+            border-radius: 48px;
+            overflow: hidden;
+        }
+        .onboarding-overlay.active { display: flex; flex-direction: column; }
+        .onboard-screen {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 30px 40px;
+            text-align: center;
+        }
+        .onboard-screen.active { display: flex; }
+        .onboard-logo {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            margin-bottom: 24px;
+        }
+        .onboard-title { font-size: 26px; font-weight: 700; margin-bottom: 8px; }
+        .onboard-subtitle { font-size: 15px; color: var(--text-secondary); line-height: 1.45; margin-bottom: 32px; max-width: 280px; }
+        .onboard-btn {
+            display: block;
+            width: 100%;
+            max-width: 280px;
+            padding: 14px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-family: inherit;
+        }
+        .onboard-btn:hover { background: var(--primary-dark); }
+        .onboard-btn:active { transform: scale(0.97); }
+        .onboard-btn.secondary {
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-top: 12px;
+        }
+
+        /* Face verification */
+        .face-frame {
+            width: 200px;
+            height: 260px;
+            border: 3px solid var(--primary);
+            border-radius: 100px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: #F8F8F8;
+        }
+        .face-frame svg { opacity: 0.25; }
+        .face-frame.scanning { border-color: var(--blue); animation: pulse 1.5s infinite; }
+        .face-frame.verified { border-color: var(--primary); }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(0,122,255,0.3); }
+            50% { box-shadow: 0 0 0 12px rgba(0,122,255,0); }
+        }
+        .face-status { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; }
+        .face-status.success { color: var(--primary); font-weight: 600; }
+
+        /* Intent & interest chips */
+        .intent-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 24px;
+            max-width: 320px;
+        }
+        .intent-chip {
+            padding: 10px 16px;
+            border: 1.5px solid var(--border);
+            border-radius: 24px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+            font-family: inherit;
+        }
+        .intent-chip:active { transform: scale(0.95); }
+        .intent-chip.selected {
+            border-color: var(--primary);
+            background: var(--primary-bg);
+            color: var(--primary-dark);
+        }
+        .onboard-question { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }
+
+        .onboard-progress {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 32px;
+        }
+        .onboard-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--border);
+        }
+        .onboard-dot.active { background: var(--primary); }
+
+        /* ================================================================ */
+        /* INSPECT PANEL                                                    */
+        /* ================================================================ */
+        .inspect-panel {
+            display: none;
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 250px;
+            background: #1E1E1E;
+            color: #D4D4D4;
+            border-radius: 12px;
+            padding: 16px;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 11px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+            z-index: 500;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .inspect-panel.visible { display: block; }
+        .inspect-panel-header {
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+        }
+        .inspect-panel-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--blue);
+            font-weight: 600;
+        }
+        .inspect-element-name {
+            display: block;
+            font-size: 12px;
+            color: #fff;
+            margin-top: 4px;
+            font-weight: 600;
+            word-break: break-all;
+        }
+        .inspect-section { margin-bottom: 10px; }
+        .inspect-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #888;
+            margin-bottom: 3px;
+        }
+        .inspect-value {
+            color: #D4D4D4;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .inspect-swatch {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            vertical-align: middle;
+            margin-right: 4px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .device-screen.inspect-active * { cursor: crosshair !important; }
+        .inspect-highlight {
+            outline: 2px solid var(--blue) !important;
+            outline-offset: -1px;
+            background-color: rgba(0,122,255,0.06) !important;
+        }
+
+        @media (max-width: 750px) {
+            .inspect-panel {
+                position: fixed;
+                bottom: 10px;
+                right: 10px;
+                top: auto;
+                transform: none;
+                width: 220px;
+                max-height: 40vh;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="device-frame">
+        <button class="onboarding-toggle" onclick="showOnboarding()">View Onboarding</button>
+        <button class="inspect-toggle" id="inspect-toggle" onclick="toggleInspect()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Inspect
+        </button>
+
+        <div class="device-screen" id="device-screen">
+            <div class="dynamic-island"></div>
+
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <span class="status-time">9:41</span>
+                <div class="status-icons">
+                    <svg width="17" height="12" viewBox="0 0 17 12"><rect x="0" y="9" width="3" height="3" rx="0.5" fill="currentColor"/><rect x="4.5" y="6" width="3" height="6" rx="0.5" fill="currentColor"/><rect x="9" y="3" width="3" height="9" rx="0.5" fill="currentColor"/><rect x="13.5" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+                    <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 10a1.2 1.2 0 110 2.4A1.2 1.2 0 018 10zm0-3.5c1.8 0 3.4.73 4.6 1.9l-1.2 1.3C10.5 8.8 9.3 8.3 8 8.3s-2.5.5-3.4 1.4L3.4 8.4C4.6 7.23 6.2 6.5 8 6.5zm0-3.5c2.7 0 5.2 1.1 7 3l-1.2 1.3C12.2 5.7 10.2 4.8 8 4.8S3.8 5.7 2.2 7.3L1 6C2.8 4.1 5.3 3 8 3z" fill="currentColor"/></svg>
+                    <svg width="27" height="12" viewBox="0 0 27 12"><rect x="0.5" y="0.5" width="22" height="11" rx="2.5" stroke="currentColor" stroke-width="1" fill="none"/><rect x="1.5" y="2" width="17.5" height="8" rx="1.5" fill="currentColor"/><path d="M24 4v4a2.2 2.2 0 000-4z" fill="currentColor" opacity="0.35"/></svg>
+                </div>
+            </div>
+
+            <!-- ==================== HOME (DISCOVER) ==================== -->
+            <div class="screen active" id="screen-home">
+                <div class="nav-header">
+                    <div>
+                        <h1>Discover</h1>
+                        <div class="neighborhood-tag">Park Slope, Brooklyn · 12 people nearby</div>
+                    </div>
+                    <div class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+                </div>
+                <div class="content">
+                    <div class="discover-card">
+                        <div class="discover-avatar avatar-photo">SK<div class="verified-badge"><svg viewBox="0 0 12 12" fill="white"><path d="M4.5 8.5L2 6l.7-.7L4.5 7.1l4.8-4.8.7.7z"/></svg></div></div>
+                        <div class="discover-info">
+                            <div class="discover-name">Sam K.</div>
+                            <div class="discover-location">Park Slope · 0.3 mi</div>
+                            <div class="discover-bio">Morning runner and coffee enthusiast. New to the neighborhood!</div>
+                            <div class="discover-bottom">
+                                <div class="discover-tags"><span class="interest-tag">Running</span><span class="interest-tag">Coffee</span></div>
+                                <button class="wave-btn" style="color:var(--text-secondary)">Matched</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="discover-card">
+                        <div class="discover-avatar">MR<div class="verified-badge"><svg viewBox="0 0 12 12" fill="white"><path d="M4.5 8.5L2 6l.7-.7L4.5 7.1l4.8-4.8.7.7z"/></svg></div></div>
+                        <div class="discover-info">
+                            <div class="discover-name">Maya R.</div>
+                            <div class="discover-location">Park Slope · 0.5 mi</div>
+                            <div class="discover-bio">Foodie and gallery hopper. Always down for a coffee walk.</div>
+                            <div class="discover-bottom">
+                                <div class="discover-tags"><span class="interest-tag">Cooking</span><span class="interest-tag">Art</span></div>
+                                <button class="wave-btn" onclick="this.textContent='Waved ✓';this.style.color='var(--text-secondary)'">Wave</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="discover-card">
+                        <div class="discover-avatar">TJ<div class="verified-badge"><svg viewBox="0 0 12 12" fill="white"><path d="M4.5 8.5L2 6l.7-.7L4.5 7.1l4.8-4.8.7.7z"/></svg></div></div>
+                        <div class="discover-info">
+                            <div class="discover-name">Tyler J.</div>
+                            <div class="discover-location">Prospect Heights · 0.8 mi</div>
+                            <div class="discover-bio">Book nerd and board game lover. Looking for game night crew!</div>
+                            <div class="discover-bottom">
+                                <div class="discover-tags"><span class="interest-tag">Books</span><span class="interest-tag">Games</span></div>
+                                <button class="wave-btn" onclick="this.textContent='Waved ✓';this.style.color='var(--text-secondary)'">Wave</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="discover-card">
+                        <div class="discover-avatar">AL<div class="verified-badge"><svg viewBox="0 0 12 12" fill="white"><path d="M4.5 8.5L2 6l.7-.7L4.5 7.1l4.8-4.8.7.7z"/></svg></div></div>
+                        <div class="discover-info">
+                            <div class="discover-name">Alex L.</div>
+                            <div class="discover-location">Park Slope · 0.2 mi</div>
+                            <div class="discover-bio">Dog parent, yoga beginner. Love meeting neighbors on walks!</div>
+                            <div class="discover-bottom">
+                                <div class="discover-tags"><span class="interest-tag">Pets</span><span class="interest-tag">Yoga</span></div>
+                                <button class="wave-btn" onclick="this.textContent='Waved ✓';this.style.color='var(--text-secondary)'">Wave</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="height:20px"></div>
+                </div>
+            </div>
+
+            <!-- ==================== EVENTS ==================== -->
+            <div class="screen" id="screen-events">
+                <div class="nav-header">
+                    <h1>Events</h1>
+                    <div class="nav-icon" style="background:none;font-size:28px;color:var(--primary)">+</div>
+                </div>
+                <div class="content">
+                    <div class="event-row">
+                        <div class="event-date"><div class="month">Mar</div><div class="day">5</div></div>
+                        <div class="event-info"><h3>Morning Run Club</h3><div class="meta">Prospect Park · 7:00 AM</div><div class="meta">8/15</div></div>
+                        <div class="event-badge">Free</div>
+                    </div>
+                    <div class="event-row">
+                        <div class="event-date"><div class="month">Mar</div><div class="day">8</div></div>
+                        <div class="event-info"><h3>Pasta Making Night</h3><div class="meta">Community Kitchen · 6:30 PM</div><div class="meta">12/12</div></div>
+                        <div class="event-badge">$15</div>
+                    </div>
+                    <div class="event-row">
+                        <div class="event-date"><div class="month">Mar</div><div class="day">10</div></div>
+                        <div class="event-info"><h3>Book Club: Klara and the Sun</h3><div class="meta">Local Caf&eacute; · 2:00 PM</div><div class="meta">5/8</div></div>
+                        <div class="event-badge">Free</div>
+                    </div>
+                    <div class="event-row">
+                        <div class="event-date"><div class="month">Mar</div><div class="day">12</div></div>
+                        <div class="event-info"><h3>Sunset Yoga in the Park</h3><div class="meta">Prospect Park · 5:30 PM</div><div class="meta">6/20</div></div>
+                        <div class="event-badge">Free</div>
+                    </div>
+                    <div class="event-row">
+                        <div class="event-date"><div class="month">Mar</div><div class="day">15</div></div>
+                        <div class="event-info"><h3>Trivia Night</h3><div class="meta">The Local Pub · 7:30 PM</div><div class="meta">16/24</div></div>
+                        <div class="event-badge">$5</div>
+                    </div>
+                    <div style="height:20px"></div>
+                </div>
+                <button class="fab" onclick="alert('Create Event')">+</button>
+            </div>
+
+            <!-- ==================== CHAT ==================== -->
+            <div class="screen" id="screen-chat">
+                <!-- Chat List -->
+                <div id="chat-list">
+                    <div class="nav-header">
+                        <h1>Chat</h1>
+                    </div>
+                    <div class="chat-list">
+                        <div class="chat-row" onclick="openConversation()">
+                            <div class="chat-avatar avatar-photo">SK</div>
+                            <div class="chat-body">
+                                <div class="chat-name">Sam K.</div>
+                                <div class="chat-preview">Sounds great! See you at the run tomorrow</div>
+                            </div>
+                            <div class="chat-meta">
+                                <div class="chat-time">2:30 PM</div>
+                                <div class="chat-unread"></div>
+                            </div>
+                        </div>
+                        <div class="chat-row">
+                            <div class="chat-avatar group">MR</div>
+                            <div class="chat-body">
+                                <div class="chat-name">Morning Run Group</div>
+                                <div class="chat-preview">Maya: I'll bring coffee for everyone!</div>
+                            </div>
+                            <div class="chat-meta">
+                                <div class="chat-time">11:15 AM</div>
+                            </div>
+                        </div>
+                        <div class="chat-row">
+                            <div class="chat-avatar">TJ</div>
+                            <div class="chat-body">
+                                <div class="chat-name">Tyler J.</div>
+                                <div class="chat-preview">Have you read the new Ishiguro?</div>
+                            </div>
+                            <div class="chat-meta">
+                                <div class="chat-time">Yesterday</div>
+                            </div>
+                        </div>
+                        <div class="chat-row">
+                            <div class="chat-avatar group">PS</div>
+                            <div class="chat-body">
+                                <div class="chat-name">Park Slope Foodies</div>
+                                <div class="chat-preview">Next potluck is Saturday!</div>
+                            </div>
+                            <div class="chat-meta">
+                                <div class="chat-time">Mon</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="report-hint">Something wrong? <a href="#" onclick="event.preventDefault()">Report a user</a></div>
+                </div>
+
+                <!-- Conversation View -->
+                <div class="conversation" id="conversation">
+                    <div class="convo-header">
+                        <button class="convo-back" onclick="closeConversation()">
+                            <svg width="12" height="20" viewBox="0 0 12 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10 2L2 10l8 8"/></svg>
+                        </button>
+                        <div class="convo-avatar avatar-photo">SK</div>
+                        <div>
+                            <span class="convo-name">Sam K.</span>
+                            <span class="convo-verified">✓ Verified</span>
+                        </div>
+                    </div>
+                    <div class="convo-messages">
+                        <div class="msg-time">Today 2:15 PM</div>
+                        <div class="msg msg-received">Hey! I saw we're both runners. Do you go to Prospect Park in the mornings?</div>
+                        <div class="msg msg-sent">Yes! Almost every day around 7. It's the best time before it gets crowded.</div>
+                        <div class="msg msg-received">Same! I usually start at the Grand Army entrance. Maybe we could do a run together sometime?</div>
+                        <div class="msg msg-sent">That'd be great! There's actually a Morning Run Club event this Saturday at 7 AM</div>
+                        <div class="msg msg-sent">Want to join?</div>
+                        <div class="msg msg-received">Sounds great! See you at the run tomorrow</div>
+                    </div>
+                    <div class="convo-input">
+                        <input type="text" placeholder="Message">
+                        <button class="send-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== PROFILE ==================== -->
+            <div class="screen" id="screen-profile">
+                <div class="nav-header">
+                    <h1>Profile</h1>
+                </div>
+                <div class="content">
+                    <div class="profile-header">
+                        <div class="profile-avatar avatar-photo">JT</div>
+                        <div class="profile-verified">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+                            Verified
+                        </div>
+                        <div class="profile-name">Jordan Taylor</div>
+                        <div class="profile-bio">Coffee lover, morning runner, and amateur chef. Always looking for new friends in the neighborhood!</div>
+                        <div class="profile-location">Park Slope, Brooklyn</div>
+                        <div class="profile-stats"><span>12</span> Events Attended · <span>3</span> Groups</div>
+                    </div>
+
+                    <div class="section-header" style="padding:0 20px"><h2>Interests</h2></div>
+                    <div class="interest-tags" style="padding:0 20px;margin-bottom:20px">
+                        <span class="interest-tag">Running</span>
+                        <span class="interest-tag">Cooking</span>
+                        <span class="interest-tag">Reading</span>
+                        <span class="interest-tag">Yoga</span>
+                        <span class="interest-tag">Coffee</span>
+                        <span class="interest-tag">Hiking</span>
+                    </div>
+
+                    <div class="settings-list">
+                        <div class="settings-item">Edit Profile <span class="chevron">›</span></div>
+                        <div class="settings-item">Notifications <span class="chevron">›</span></div>
+                        <div class="settings-item">Safety &amp; Reporting <span class="chevron">›</span></div>
+                        <div class="settings-item">About Friendly <span class="chevron">›</span></div>
+                        <div class="settings-item danger">Sign Out</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== ONBOARDING OVERLAY ==================== -->
+            <div class="onboarding-overlay" id="onboarding">
+                <div class="onboard-screen active" id="onboard-1">
+                    <div class="onboard-progress"><div class="onboard-dot active"></div><div class="onboard-dot"></div><div class="onboard-dot"></div><div class="onboard-dot"></div></div>
+                    <div class="onboard-logo">Friendly</div>
+                    <div class="onboard-title">Friendly</div>
+                    <div class="onboard-subtitle">Meet your neighbors. Make real friends. No swiping, no pressure — just genuine connections in your neighborhood.</div>
+                    <button class="onboard-btn" onclick="goOnboard(2)">Get Started</button>
+                </div>
+                <div class="onboard-screen" id="onboard-2">
+                    <div class="onboard-progress"><div class="onboard-dot"></div><div class="onboard-dot active"></div><div class="onboard-dot"></div><div class="onboard-dot"></div></div>
+                    <div class="onboard-title" style="font-size:22px">Verify it's really you</div>
+                    <div class="onboard-subtitle">A quick face scan keeps Friendly safe for everyone.</div>
+                    <div class="face-frame" id="face-frame">
+                        <svg width="80" height="100" viewBox="0 0 80 100"><ellipse cx="40" cy="45" rx="30" ry="38" fill="none" stroke="#999" stroke-width="1.5"/><circle cx="28" cy="38" r="2.5" fill="#999"/><circle cx="52" cy="38" r="2.5" fill="#999"/><path d="M32 58q8 6 16 0" fill="none" stroke="#999" stroke-width="1.5"/></svg>
+                    </div>
+                    <div class="face-status" id="face-status">Position your face in the frame</div>
+                    <button class="onboard-btn" id="face-btn" onclick="startFaceScan()">Scan My Face</button>
+                    <div style="font-size:11px;color:var(--text-secondary);margin-top:16px;max-width:260px;line-height:1.4">Your face data is processed on-device and never stored on our servers.</div>
+                </div>
+                <div class="onboard-screen" id="onboard-3">
+                    <div class="onboard-progress"><div class="onboard-dot"></div><div class="onboard-dot"></div><div class="onboard-dot active"></div><div class="onboard-dot"></div></div>
+                    <div class="onboard-title" style="font-size:22px">What are you looking for?</div>
+                    <div class="onboard-subtitle">Help us connect you with the right people.</div>
+                    <div class="intent-grid" id="intent-grid">
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Activity partners</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Casual hangouts</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Neighborhood friends</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Parent connections</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Dog walking buddies</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Professional networking</button>
+                    </div>
+                    <div class="onboard-question">What's your friendship style?</div>
+                    <div class="intent-grid" id="style-grid">
+                        <button class="intent-chip" onclick="selectStyle(this)">Spontaneous</button>
+                        <button class="intent-chip" onclick="selectStyle(this)">Planner</button>
+                        <button class="intent-chip" onclick="selectStyle(this)">Flexible</button>
+                    </div>
+                    <button class="onboard-btn" onclick="goOnboard(4)">Continue</button>
+                </div>
+                <div class="onboard-screen" id="onboard-4">
+                    <div class="onboard-progress"><div class="onboard-dot"></div><div class="onboard-dot"></div><div class="onboard-dot"></div><div class="onboard-dot active"></div></div>
+                    <div class="onboard-title" style="font-size:22px">Pick your interests</div>
+                    <div class="onboard-subtitle">Select a few things you enjoy. This helps us find your people.</div>
+                    <div class="intent-grid" id="interest-grid">
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Running</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Cooking</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Reading</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Yoga</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Coffee</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Hiking</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Art</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Music</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Gaming</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Outdoors</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Pets</button>
+                        <button class="intent-chip" onclick="this.classList.toggle('selected')">Photography</button>
+                    </div>
+                    <button class="onboard-btn" onclick="closeOnboarding()">Done</button>
+                </div>
+            </div>
+
+            <!-- Tab Bar -->
+            <div class="tab-bar" id="tab-bar">
+                <div class="tab active" onclick="showTab('home')">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                    Home
+                </div>
+                <div class="tab" onclick="showTab('events')">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
+                    Events
+                </div>
+                <div class="tab" onclick="showTab('chat')">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+                    Chat
+                </div>
+                <div class="tab" onclick="showTab('profile')">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                    Profile
+                </div>
+            </div>
+
+            <div class="home-indicator"></div>
+        </div>
+    </div>
+
+    <!-- Inspect Panel -->
+    <div class="inspect-panel" id="inspect-panel">
+        <div class="inspect-panel-header">
+            <div class="inspect-panel-title">Inspect</div>
+            <div class="inspect-element-name" id="inspect-el-name">Hover an element</div>
+        </div>
+        <div class="inspect-section"><div class="inspect-label">Dimensions</div><div class="inspect-value" id="inspect-dims">—</div></div>
+        <div class="inspect-section"><div class="inspect-label">Spacing</div><div class="inspect-value" id="inspect-spacing">—</div></div>
+        <div class="inspect-section"><div class="inspect-label">Typography</div><div class="inspect-value" id="inspect-type">—</div></div>
+        <div class="inspect-section"><div class="inspect-label">Colors</div><div class="inspect-value" id="inspect-colors">—</div></div>
+        <div class="inspect-section"><div class="inspect-label">Border &amp; Shadow</div><div class="inspect-value" id="inspect-border">—</div></div>
+    </div>
+
+    <script>
+        /* ============ TAB NAVIGATION ============ */
+        function showTab(name) {
+            // Close conversation if open
+            document.getElementById('chat-list').style.display = '';
+            document.getElementById('conversation').classList.remove('active');
+            // Switch screens
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('screen-' + name).classList.add('active');
+            const tabs = ['home', 'events', 'chat', 'profile'];
+            const idx = tabs.indexOf(name);
+            if (idx >= 0) document.querySelectorAll('.tab')[idx].classList.add('active');
+        }
+
+        /* ============ CHAT ============ */
+        function openConversation() {
+            document.getElementById('chat-list').style.display = 'none';
+            document.getElementById('conversation').classList.add('active');
+            document.getElementById('tab-bar').style.display = 'none';
+        }
+        function closeConversation() {
+            document.getElementById('conversation').classList.remove('active');
+            document.getElementById('chat-list').style.display = '';
+            document.getElementById('tab-bar').style.display = '';
+        }
+
+        /* ============ ONBOARDING ============ */
+        function showOnboarding() {
+            document.getElementById('onboarding').classList.add('active');
+            document.getElementById('tab-bar').style.display = 'none';
+            goOnboard(1);
+            // Reset face scan state
+            document.getElementById('face-frame').className = 'face-frame';
+            document.getElementById('face-status').textContent = 'Position your face in the frame';
+            document.getElementById('face-status').className = 'face-status';
+            document.getElementById('face-btn').textContent = 'Scan My Face';
+            document.getElementById('face-btn').disabled = false;
+        }
+        function closeOnboarding() {
+            document.getElementById('onboarding').classList.remove('active');
+            document.getElementById('tab-bar').style.display = '';
+        }
+        function goOnboard(n) {
+            document.querySelectorAll('.onboard-screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('onboard-' + n).classList.add('active');
+        }
+        function startFaceScan() {
+            const frame = document.getElementById('face-frame');
+            const status = document.getElementById('face-status');
+            const btn = document.getElementById('face-btn');
+            frame.classList.add('scanning');
+            status.textContent = 'Scanning...';
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            setTimeout(() => {
+                frame.classList.remove('scanning');
+                frame.classList.add('verified');
+                status.textContent = '✓ Verified!';
+                status.className = 'face-status success';
+                btn.textContent = 'Continue';
+                btn.style.opacity = '1';
+                btn.disabled = false;
+                btn.onclick = () => goOnboard(3);
+            }, 2000);
+        }
+        function selectStyle(el) {
+            document.querySelectorAll('#style-grid .intent-chip').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+        }
+
+        /* ============ INSPECT MODE ============ */
+        let inspectActive = false;
+        let lastHighlight = null;
+
+        function toggleInspect() {
+            inspectActive = !inspectActive;
+            const screen = document.getElementById('device-screen');
+            const toggle = document.getElementById('inspect-toggle');
+            const panel = document.getElementById('inspect-panel');
+            screen.classList.toggle('inspect-active', inspectActive);
+            toggle.classList.toggle('active', inspectActive);
+            panel.classList.toggle('visible', inspectActive);
+            if (inspectActive) {
+                screen.addEventListener('mouseover', inspectHover, true);
+                screen.addEventListener('mouseout', inspectOut, true);
+            } else {
+                screen.removeEventListener('mouseover', inspectHover, true);
+                screen.removeEventListener('mouseout', inspectOut, true);
+                clearHighlight();
+            }
+        }
+        function clearHighlight() {
+            if (lastHighlight) { lastHighlight.classList.remove('inspect-highlight'); lastHighlight = null; }
+        }
+        function inspectHover(e) {
+            const el = e.target;
+            if (el.closest('.inspect-toggle') || el.closest('.inspect-panel') ||
+                el.classList.contains('device-screen') || el.classList.contains('dynamic-island') ||
+                el.classList.contains('home-indicator')) return;
+            clearHighlight();
+            el.classList.add('inspect-highlight');
+            lastHighlight = el;
+            updateInspectPanel(el);
+        }
+        function inspectOut(e) {
+            if (!e.relatedTarget || !e.relatedTarget.closest || !e.relatedTarget.closest('.device-screen')) {
+                clearHighlight();
+            }
+        }
+        function updateInspectPanel(el) {
+            const cs = window.getComputedStyle(el);
+            const rect = el.getBoundingClientRect();
+            // Name
+            let name = el.tagName.toLowerCase();
+            if (el.className && typeof el.className === 'string') {
+                const cls = el.className.replace(/inspect-highlight/g, '').trim().split(/\s+/).filter(Boolean).slice(0, 3).join('.');
+                if (cls) name += '.' + cls;
+            }
+            document.getElementById('inspect-el-name').textContent = name;
+            document.getElementById('inspect-dims').textContent = Math.round(rect.width) + ' × ' + Math.round(rect.height) + 'px';
+            document.getElementById('inspect-spacing').textContent = 'pad: ' + cs.padding + '\nmar: ' + cs.margin;
+            document.getElementById('inspect-type').textContent =
+                cs.fontFamily.split(',')[0].replace(/['"]/g, '') + '\n' +
+                cs.fontSize + ' / ' + cs.lineHeight + '\nweight: ' + cs.fontWeight;
+            document.getElementById('inspect-colors').innerHTML =
+                '<span class="inspect-swatch" style="background:' + cs.backgroundColor + '"></span>bg: ' + rgbHex(cs.backgroundColor) + '\n' +
+                '<span class="inspect-swatch" style="background:' + cs.color + '"></span>text: ' + rgbHex(cs.color);
+            const br = cs.borderRadius;
+            const shadow = cs.boxShadow;
+            document.getElementById('inspect-border').textContent =
+                'radius: ' + (br === '0px' ? 'none' : br) + '\nshadow: ' + (shadow === 'none' ? 'none' : 'yes');
+        }
+        function rgbHex(rgb) {
+            if (!rgb || rgb === 'transparent' || rgb === 'rgba(0, 0, 0, 0)') return 'transparent';
+            const m = rgb.match(/\d+/g);
+            if (!m || m.length < 3) return rgb;
+            return '#' + m.slice(0, 3).map(x => parseInt(x).toString(16).padStart(2, '0')).join('').toUpperCase();
+        }
+    </script>
+</body>
+</html>
