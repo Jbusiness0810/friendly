@@ -901,3 +901,192 @@ body {
 .legal-email {
     color: var(--primary);
 }
+
+/* ================================================================ */
+/* BOTTOM SHEET MODAL                                                */
+/* ================================================================ */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 200;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: fadeInOverlay 0.2s ease;
+}
+@keyframes fadeInOverlay {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.bottom-sheet {
+    background: var(--card);
+    width: 100%;
+    max-width: 430px;
+    border-radius: 14px 14px 0 0;
+    padding: 20px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 16px));
+    max-height: 85dvh;
+    overflow-y: auto;
+    animation: slideUpSheet 0.3s ease;
+}
+@keyframes slideUpSheet {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+.bottom-sheet h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+.sheet-field {
+    margin-bottom: 14px;
+}
+.sheet-field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.sheet-field input,
+.sheet-field textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 15px;
+    font-family: inherit;
+    background: var(--input-bg);
+    color: var(--text);
+    outline: none;
+}
+.sheet-field input:focus,
+.sheet-field textarea:focus {
+    border-color: var(--primary);
+}
+.sheet-field textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+.sheet-row {
+    display: flex;
+    gap: 12px;
+}
+.sheet-row .sheet-field {
+    flex: 1;
+}
+.sheet-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+}
+.sheet-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+.sheet-btn:active { transform: scale(0.97); }
+.sheet-btn-cancel {
+    background: var(--active-bg);
+    color: var(--text);
+}
+.sheet-btn-submit {
+    background: var(--primary);
+    color: #FFFFFF;
+}
+.sheet-btn-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ================================================================ */
+/* RSVP BUTTONS                                                      */
+/* ================================================================ */
+.rsvp-btn {
+    padding: 6px 14px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.rsvp-btn:active { transform: scale(0.93); }
+.rsvp-btn-default {
+    background: var(--primary);
+    color: #FFFFFF;
+}
+.rsvp-btn-going {
+    background: #34C759;
+    color: #FFFFFF;
+}
+
+/* ================================================================ */
+/* EMPTY STATE                                                       */
+/* ================================================================ */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+/* ================================================================ */
+/* PROFILE EDIT                                                      */
+/* ================================================================ */
+.edit-profile-section {
+    padding: 0 20px;
+    margin-bottom: 16px;
+}
+.edit-profile-section label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    display: block;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.edit-profile-section input,
+.edit-profile-section textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 15px;
+    background: var(--input-bg);
+    color: var(--text);
+    font-family: inherit;
+    outline: none;
+}
+.edit-profile-section input:focus,
+.edit-profile-section textarea:focus {
+    border-color: var(--primary);
+}
+.edit-profile-section textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+.edit-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.edit-actions {
+    display: flex;
+    gap: 10px;
+    padding: 16px 20px;
+}
