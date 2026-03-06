@@ -44,12 +44,12 @@ const Profile: Component = () => {
   const startEditing = () => {
     const p = profile();
     if (!p) return;
-    setEditName(p.name);
+    setEditName(p.name ?? "");
     setEditBio(p.bio ?? "");
     setEditLocation(p.location ?? "");
     setEditFunFact(p.fun_fact ?? "");
-    setEditInterests([...p.interests]);
-    setEditHangouts([...p.ideal_hangouts]);
+    setEditInterests([...(p.interests ?? [])]);
+    setEditHangouts([...(p.ideal_hangouts ?? [])]);
     setEditStyle(p.social_style ?? "");
     setEditing(true);
   };

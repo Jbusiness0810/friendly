@@ -103,7 +103,11 @@ export const AuthProvider: ParentComponent = (props) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (_) {
+      // Force sign-out even if Supabase call fails
+    }
     setSession(null);
     setProfile(null);
   };
