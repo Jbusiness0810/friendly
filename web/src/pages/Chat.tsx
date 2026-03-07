@@ -12,6 +12,7 @@ import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { showToast } from "../lib/toast";
+import { setHasUnread } from "../lib/unread";
 
 interface Conversation {
   id: string;
@@ -72,8 +73,43 @@ const Chat: Component = () => {
 
   let messagesEndRef!: HTMLDivElement;
   let channel: RealtimeChannel | null = null;
+  let listChannel: RealtimeChannel | null = null;
 
   const myId = () => user()?.id ?? "";
+
+  // Unread tracking via localStorage
+  const getLastReadMap = (): Map<string, string> => {
+    try {
+      const stored = localStorage.getItem("friendly-last-read");
+      if (stored) return new Map(JSON.parse(stored));
+    } catch { /* ignore */ }
+    return new Map();
+  };
+
+  const [lastReadMap, setLastReadMap] = createSignal<Map<string, string>>(getLastReadMap());
+
+  const markRead = (convoId: string) => {
+    const updated = new Map(lastReadMap());
+    updated.set(convoId, new Date().toISOString());
+    setLastReadMap(updated);
+    try {
+      localStorage.setItem("friendly-last-read", JSON.stringify([...updated]));
+    } catch { /* ignore */ }
+    updateUnreadBadge();
+  };
+
+  const isUnread = (row: ConversationRow): boolean => {
+    if (!row.latestMessage) return false;
+    if (row.latestMessage.sender_id === myId()) return false;
+    const lastRead = lastReadMap().get(row.conversation.id);
+    if (!lastRead) return true;
+    return new Date(row.latestMessage.created_at) > new Date(lastRead);
+  };
+
+  const updateUnreadBadge = () => {
+    const unread = rows().some((r) => isUnread(r));
+    setHasUnread(unread);
+  };
 
   // Auto-scroll to bottom when messages change
   createEffect(() => {
@@ -161,9 +197,42 @@ const Chat: Component = () => {
 
     setRows(allRows);
     setLoadingList(false);
+    updateUnreadBadge();
+
+    // Subscribe to realtime for conversation list updates
+    if (listChannel) supabase.removeChannel(listChannel);
+    const convoIds = allRows.map((r) => r.conversation.id);
+    if (convoIds.length > 0) {
+      listChannel = supabase
+        .channel("chat-list-" + id)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "messages" },
+          (payload) => {
+            const newMsg = payload.new as Message;
+            if (!convoIds.includes(newMsg.conversation_id)) return;
+            setRows((prev) => {
+              const updated = prev.map((r) =>
+                r.conversation.id === newMsg.conversation_id
+                  ? { ...r, latestMessage: newMsg }
+                  : r
+              );
+              updated.sort((a, b) => {
+                const aTime = a.latestMessage?.created_at ?? a.conversation.created_at;
+                const bTime = b.latestMessage?.created_at ?? b.conversation.created_at;
+                return new Date(bTime).getTime() - new Date(aTime).getTime();
+              });
+              return updated;
+            });
+            updateUnreadBadge();
+          }
+        )
+        .subscribe();
+    }
   };
 
   const openConversation = async (row: ConversationRow) => {
+    markRead(row.conversation.id);
     setActiveConvo(row);
     setLoadingMessages(true);
     setMessages([]);
@@ -320,6 +389,10 @@ const Chat: Component = () => {
       supabase.removeChannel(channel);
       channel = null;
     }
+    if (listChannel) {
+      supabase.removeChannel(listChannel);
+      listChannel = null;
+    }
   });
 
   return (
@@ -373,6 +446,9 @@ const Chat: Component = () => {
                           ? formatTime(row.latestMessage.created_at)
                           : ""}
                       </div>
+                      <Show when={isUnread(row)}>
+                        <div class="chat-unread-dot" />
+                      </Show>
                     </div>
                   </div>
                 )}

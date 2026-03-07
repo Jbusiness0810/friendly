@@ -15,6 +15,16 @@ const HANGOUT_OPTIONS = [
 
 const STYLE_OPTIONS = ["Spontaneous", "Planner", "Bit of both"];
 
+const INTENT_OPTIONS = [
+  "Gym partner", "Grab a drink", "Watch the game",
+  "Pickup sports", "Weekend plans", "Networking",
+];
+
+const POLITICAL_OPTIONS = [
+  "Progressive", "Liberal", "Moderate",
+  "Conservative", "Libertarian", "Rather not say",
+];
+
 const Profile: Component = () => {
   const { profile, signOut, refreshProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -31,6 +41,8 @@ const Profile: Component = () => {
   const [editInterests, setEditInterests] = createSignal<string[]>([]);
   const [editHangouts, setEditHangouts] = createSignal<string[]>([]);
   const [editStyle, setEditStyle] = createSignal("");
+  const [editIntent, setEditIntent] = createSignal<string[]>([]);
+  const [editPolitical, setEditPolitical] = createSignal("");
 
   const initials = () => {
     const p = profile();
@@ -53,6 +65,8 @@ const Profile: Component = () => {
     setEditInterests([...(p.interests ?? [])]);
     setEditHangouts([...(p.ideal_hangouts ?? [])]);
     setEditStyle(p.social_style ?? "");
+    setEditIntent([...(p.intent ?? [])]);
+    setEditPolitical(p.political_alignment ?? "");
     setEditing(true);
   };
 
@@ -89,6 +103,8 @@ const Profile: Component = () => {
         interests: editInterests(),
         ideal_hangouts: editHangouts(),
         social_style: editStyle() || null,
+        intent: editIntent(),
+        political_alignment: editPolitical() || null,
       })
       .eq("id", p.id);
 
@@ -199,6 +215,38 @@ const Profile: Component = () => {
                   </div>
                 </div>
 
+                <div class="edit-profile-section">
+                  <label>Looking For</label>
+                  <div class="edit-chips">
+                    <For each={INTENT_OPTIONS}>
+                      {(opt) => (
+                        <button
+                          class={`onboard-chip${editIntent().includes(opt) ? " selected" : ""}`}
+                          onClick={() => toggleChip(editIntent, setEditIntent, opt)}
+                        >
+                          {opt}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </div>
+
+                <div class="edit-profile-section">
+                  <label>Political Views</label>
+                  <div class="edit-chips">
+                    <For each={POLITICAL_OPTIONS}>
+                      {(opt) => (
+                        <button
+                          class={`onboard-chip${editPolitical() === opt ? " selected" : ""}`}
+                          onClick={() => setEditPolitical(opt)}
+                        >
+                          {opt}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </div>
+
                 <div class="edit-actions">
                   <button class="sheet-btn sheet-btn-cancel" onClick={cancelEditing}>
                     Cancel
@@ -260,6 +308,35 @@ const Profile: Component = () => {
                     <For each={p().ideal_hangouts}>
                       {(tag) => <span class="interest-tag">{tag}</span>}
                     </For>
+                  </div>
+                </Show>
+
+                <Show when={p().social_style}>
+                  <div class="section-header" style="padding:0 20px">
+                    <h2>Social Style</h2>
+                  </div>
+                  <div class="interest-tags" style="padding:0 20px;margin-bottom:20px">
+                    <span class="interest-tag">{p().social_style}</span>
+                  </div>
+                </Show>
+
+                <Show when={p().intent && p().intent.length > 0}>
+                  <div class="section-header" style="padding:0 20px">
+                    <h2>Looking For</h2>
+                  </div>
+                  <div class="interest-tags" style="padding:0 20px;margin-bottom:20px">
+                    <For each={p().intent}>
+                      {(tag) => <span class="interest-tag">{tag}</span>}
+                    </For>
+                  </div>
+                </Show>
+
+                <Show when={p().political_alignment && p().political_alignment !== "Rather not say"}>
+                  <div class="section-header" style="padding:0 20px">
+                    <h2>Political Views</h2>
+                  </div>
+                  <div class="interest-tags" style="padding:0 20px;margin-bottom:20px">
+                    <span class="interest-tag">{p().political_alignment}</span>
                   </div>
                 </Show>
 

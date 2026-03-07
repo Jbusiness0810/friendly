@@ -2,6 +2,7 @@ import { type ParentComponent, Show, For, createEffect } from "solid-js";
 import { A, useNavigate } from "@solidjs/router";
 import { useAuth } from "./context/AuthContext";
 import { toasts } from "./lib/toast";
+import { hasUnread } from "./lib/unread";
 
 const App: ParentComponent = (props) => {
   const { session, profile, loading } = useAuth();
@@ -52,10 +53,13 @@ const App: ParentComponent = (props) => {
           </svg>
           Events
         </A>
-        <A href="/chat">
+        <A href="/chat" class="tab-chat-wrap">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
           </svg>
+          <Show when={hasUnread()}>
+            <div class="tab-unread-dot" />
+          </Show>
           Chat
         </A>
         <A href="/profile">

@@ -16,12 +16,19 @@ const Home: Component = () => {
   const { profile } = useAuth();
   const navigate = useNavigate();
 
+  const PAGE_SIZE = 50;
+
   const [people, setPeople] = createSignal<
     Array<UserProfile & { compatibilityScore: number }>
   >([]);
   const [sentWaves, setSentWaves] = createSignal<Set<string>>(new Set());
   const [receivedWaves, setReceivedWaves] = createSignal<Set<string>>(new Set());
   const [loading, setLoading] = createSignal(true);
+  const [totalCount, setTotalCount] = createSignal(0);
+  const [loadingMore, setLoadingMore] = createSignal(false);
+  const [allUsers, setAllUsers] = createSignal<
+    Array<UserProfile & { compatibilityScore: number }>
+  >([]);
 
   onMount(async () => {
     const myProfile = profile();
@@ -30,7 +37,7 @@ const Home: Component = () => {
 
     try {
       const [usersRes, sentRes, receivedRes] = await Promise.all([
-        supabase.from("users").select("*").neq("id", myId),
+        supabase.from("users").select("*", { count: "exact" }).neq("id", myId),
         supabase.from("waves").select("target_id").eq("user_id", myId),
         supabase.from("waves").select("user_id").eq("target_id", myId),
       ]);
@@ -42,7 +49,9 @@ const Home: Component = () => {
           myProfile,
           usersRes.data as UserProfile[]
         );
-        setPeople(ranked);
+        setAllUsers(ranked);
+        setTotalCount(ranked.length);
+        setPeople(ranked.slice(0, PAGE_SIZE));
       }
 
       if (sentRes.data) {
@@ -58,6 +67,16 @@ const Home: Component = () => {
 
     setLoading(false);
   });
+
+  const loadMore = () => {
+    setLoadingMore(true);
+    const current = people().length;
+    const next = allUsers().slice(0, current + PAGE_SIZE);
+    setPeople(next);
+    setLoadingMore(false);
+  };
+
+  const hasMore = () => people().length < totalCount();
 
   const isMatched = (personId: string) =>
     sentWaves().has(personId) && receivedWaves().has(personId);
@@ -167,6 +186,17 @@ const Home: Component = () => {
                 </div>
               )}
             </For>
+            <Show when={hasMore()}>
+              <div class="load-more-wrap">
+                <button
+                  class="load-more-btn"
+                  onClick={loadMore}
+                  disabled={loadingMore()}
+                >
+                  {loadingMore() ? "Loading..." : `Load more (${totalCount() - people().length} remaining)`}
+                </button>
+              </div>
+            </Show>
           </div>
         </Show>
       </Show>

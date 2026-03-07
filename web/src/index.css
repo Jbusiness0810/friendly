@@ -346,6 +346,20 @@ body {
 .chat-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
 .chat-time { font-size: 12px; color: var(--text-secondary); }
 .chat-unread { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+.chat-unread-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+
+/* Tab bar unread badge */
+.tab-chat-wrap { position: relative; }
+.tab-unread-dot {
+    position: absolute;
+    top: -2px;
+    right: -4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #FF3B30;
+    border: 1.5px solid var(--card);
+}
 
 /* Conversation */
 .convo-header {
@@ -1118,4 +1132,68 @@ body {
     display: flex;
     gap: 10px;
     padding: 16px 20px;
+}
+
+/* ================================================================ */
+/* LOAD MORE                                                         */
+/* ================================================================ */
+.load-more-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+}
+.load-more-btn {
+    padding: 10px 24px;
+    background: none;
+    color: var(--primary);
+    border: 1.5px solid var(--primary);
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.load-more-btn:active { transform: scale(0.95); }
+.load-more-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ================================================================ */
+/* 404 PAGE                                                          */
+/* ================================================================ */
+.not-found {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100dvh;
+    padding: 40px 20px;
+    text-align: center;
+}
+.not-found-code {
+    font-size: 64px;
+    font-weight: 800;
+    color: var(--text-secondary);
+    opacity: 0.3;
+    line-height: 1;
+}
+.not-found-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-top: 8px;
+}
+.not-found-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    line-height: 1.4;
+}
+.not-found-link {
+    margin-top: 20px;
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
 }

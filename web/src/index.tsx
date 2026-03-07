@@ -12,6 +12,7 @@ import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
+import NotFound from "./pages/NotFound";
 import "./index.css";
 
 render(
@@ -29,6 +30,7 @@ render(
             <Route path="/chat" component={Chat} />
             <Route path="/profile" component={Profile} />
           </Route>
+          <Route path="*" component={NotFound} />
         </Router>
       </AuthProvider>
     </ThemeProvider>
