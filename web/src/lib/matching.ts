@@ -34,7 +34,7 @@ function overlapRatio(a: string[], b: string[]): number {
 /** Political alignment compatibility */
 function politicalScore(a: string | null, b: string | null): number {
   // If either declined to say, give a neutral middle score (not penalized, not rewarded)
-  if (!a || !b || a === "I'd rather not say" || b === "I'd rather not say") {
+  if (!a || !b || a === "Rather not say" || b === "Rather not say") {
     return 0.5;
   }
 
@@ -75,7 +75,7 @@ export function calculateCompatibility(
   // Ideal hangouts overlap
   const hangoutsScore = overlapRatio(me.ideal_hangouts, them.ideal_hangouts);
 
-  // Social style match (exact match = 1, different = 0, "Go with the flow" = 0.5 with anything)
+  // Social style match (exact match = 1, different = 0, "Bit of both" = 0.5 with anything)
   let styleScore = 0;
   if (me.social_style && them.social_style) {
     if (
@@ -83,8 +83,8 @@ export function calculateCompatibility(
     ) {
       styleScore = 1;
     } else if (
-      me.social_style.toLowerCase() === "go with the flow" ||
-      them.social_style.toLowerCase() === "go with the flow"
+      me.social_style.toLowerCase() === "bit of both" ||
+      them.social_style.toLowerCase() === "bit of both"
     ) {
       styleScore = 0.5;
     }

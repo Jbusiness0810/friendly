@@ -1,6 +1,7 @@
 import { createSignal, onMount, Show, For, type Component } from "solid-js";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
+import { showToast } from "../lib/toast";
 
 interface EventRow {
   id: string;
@@ -45,12 +46,16 @@ const Events: Component = () => {
   const [price, setPrice] = createSignal("");
 
   const fetchEvents = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("events")
       .select("*, event_rsvps(count)")
       .order("date", { ascending: true })
       .gte("date", new Date().toISOString());
 
+    if (error) {
+      showToast("Failed to load events");
+      return;
+    }
     setEvents((data as EventRow[]) ?? []);
   };
 
@@ -103,16 +108,36 @@ const Events: Component = () => {
       })
     );
 
+    let error;
     if (isGoing) {
-      await supabase
+      ({ error } = await supabase
         .from("event_rsvps")
         .delete()
         .eq("event_id", eventId)
-        .eq("user_id", myId);
+        .eq("user_id", myId));
     } else {
-      await supabase
+      ({ error } = await supabase
         .from("event_rsvps")
-        .insert({ event_id: eventId, user_id: myId });
+        .insert({ event_id: eventId, user_id: myId }));
+    }
+
+    if (error) {
+      // Revert optimistic updates
+      setMyRsvps((prev) => {
+        const next = new Set(prev);
+        if (isGoing) next.add(eventId);
+        else next.delete(eventId);
+        return next;
+      });
+      setEvents((prev) =>
+        prev.map((e) => {
+          if (e.id !== eventId) return e;
+          const currentCount = e.event_rsvps[0]?.count ?? 0;
+          const newCount = isGoing ? currentCount + 1 : Math.max(0, currentCount - 1);
+          return { ...e, event_rsvps: [{ count: newCount }] };
+        })
+      );
+      showToast("Failed to update RSVP");
     }
   };
 
@@ -142,7 +167,13 @@ const Events: Component = () => {
       price: price().trim() || null,
     };
 
-    await supabase.from("events").insert(payload);
+    const { error } = await supabase.from("events").insert(payload);
+
+    if (error) {
+      showToast("Failed to create event");
+      setSubmitting(false);
+      return;
+    }
 
     setSubmitting(false);
     setShowModal(false);
@@ -200,6 +231,10 @@ const Events: Component = () => {
                 const month = MONTHS[d.getMonth()];
                 const day = d.getDate();
                 const isGoing = () => myRsvps().has(event.id);
+                const isFull = () =>
+                  event.capacity != null &&
+                  getRsvpCount(event) >= event.capacity &&
+                  !isGoing();
 
                 return (
                   <div class="event-row">
@@ -219,10 +254,11 @@ const Events: Component = () => {
                       <div class="event-badge">{getPriceDisplay(event)}</div>
                       <Show when={user()}>
                         <button
-                          class={`rsvp-btn ${isGoing() ? "rsvp-btn-going" : "rsvp-btn-default"}`}
+                          class={`rsvp-btn ${isGoing() ? "rsvp-btn-going" : isFull() ? "rsvp-btn-full" : "rsvp-btn-default"}`}
                           onClick={() => toggleRsvp(event.id)}
+                          disabled={isFull()}
                         >
-                          {isGoing() ? "Going" : "RSVP"}
+                          {isGoing() ? "Going" : isFull() ? "Full" : "RSVP"}
                         </button>
                       </Show>
                     </div>

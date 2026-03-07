@@ -2,6 +2,7 @@ import { createSignal, type Component, Show, For } from "solid-js";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { supabase } from "../lib/supabase";
+import { showToast } from "../lib/toast";
 
 const INTEREST_OPTIONS = [
   "Lifting", "Running", "Cooking", "Gaming", "Music", "Hiking",
@@ -20,6 +21,7 @@ const Profile: Component = () => {
 
   const [editing, setEditing] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
+  const [showAbout, setShowAbout] = createSignal(false);
 
   // Edit form state
   const [editName, setEditName] = createSignal("");
@@ -93,6 +95,8 @@ const Profile: Component = () => {
     if (!error) {
       await refreshProfile();
       setEditing(false);
+    } else {
+      showToast("Failed to save profile");
     }
 
     setSaving(false);
@@ -212,7 +216,11 @@ const Profile: Component = () => {
               {/* ==================== VIEW MODE ==================== */}
               <>
                 <div class="profile-header">
-                  <div class="profile-avatar avatar-photo">{initials()}</div>
+                  <div class={`profile-avatar${p().avatar_url ? " avatar-photo" : ""}`}>
+                    <Show when={p().avatar_url} fallback={initials()}>
+                      <img src={p().avatar_url!} alt={p().name} />
+                    </Show>
+                  </div>
                   <Show when={p().verified}>
                     <div class="profile-verified">
                       <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
@@ -263,11 +271,25 @@ const Profile: Component = () => {
                     </div>
                   </div>
                   <div class="settings-item" onClick={startEditing}>Edit Profile <span class="chevron">›</span></div>
-                  <div class="settings-item">Notifications <span class="chevron">›</span></div>
-                  <div class="settings-item">Safety &amp; Reporting <span class="chevron">›</span></div>
-                  <div class="settings-item">About Friendly <span class="chevron">›</span></div>
+                  <div class="settings-item" onClick={() => setShowAbout(true)}>About Friendly <span class="chevron">›</span></div>
                   <div class="settings-item danger" onClick={signOut}>Sign Out</div>
                 </div>
+
+                <Show when={showAbout()}>
+                  <div class="modal-overlay" onClick={() => setShowAbout(false)}>
+                    <div class="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+                      <h2>About Friendly</h2>
+                      <p style="color:var(--text-secondary);font-size:14px;line-height:1.5;margin-bottom:12px">
+                        Friendly helps you meet real people in your neighborhood.
+                        Wave at someone, find common ground, and make plans.
+                      </p>
+                      <p style="color:var(--text-secondary);font-size:13px">Version 1.0.0</p>
+                      <div class="sheet-actions">
+                        <button class="sheet-btn sheet-btn-cancel" onClick={() => setShowAbout(false)}>Close</button>
+                      </div>
+                    </div>
+                  </div>
+                </Show>
               </>
             </Show>
           )}

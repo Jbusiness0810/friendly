@@ -11,6 +11,7 @@ import { useSearchParams } from "@solidjs/router";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { showToast } from "../lib/toast";
 
 interface Conversation {
   id: string;
@@ -93,7 +94,14 @@ const Chat: Component = () => {
       .select("*")
       .contains("participants", [id]);
 
-    if (error || !convos || convos.length === 0) {
+    if (error) {
+      showToast("Failed to load conversations");
+      setRows([]);
+      setLoadingList(false);
+      return;
+    }
+
+    if (!convos || convos.length === 0) {
       setRows([]);
       setLoadingList(false);
       return;
@@ -223,7 +231,7 @@ const Chat: Component = () => {
     };
     setMessages((prev) => [...prev, optimisticMsg]);
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("messages")
       .insert({
         conversation_id: convo.conversation.id,
@@ -232,6 +240,12 @@ const Chat: Component = () => {
       })
       .select()
       .single();
+
+    if (error) {
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+      showToast("Failed to send message");
+      return;
+    }
 
     // Replace optimistic message with real one
     if (data) {
@@ -328,7 +342,7 @@ const Chat: Component = () => {
                 style={{
                   padding: "2rem",
                   "text-align": "center",
-                  color: "#888",
+                  color: "var(--text-secondary)",
                 }}
               >
                 No conversations yet. Wave at someone on Discover!
@@ -342,8 +356,10 @@ const Chat: Component = () => {
                     class="chat-row"
                     onClick={() => openConversation(row)}
                   >
-                    <div class="chat-avatar">
-                      {getInitials(row.otherUser.name)}
+                    <div class={`chat-avatar${row.otherUser.avatar_url ? " avatar-photo" : ""}`}>
+                      <Show when={row.otherUser.avatar_url} fallback={getInitials(row.otherUser.name)}>
+                        <img src={row.otherUser.avatar_url!} alt={row.otherUser.name} />
+                      </Show>
                     </div>
                     <div class="chat-body">
                       <div class="chat-name">{row.otherUser.name}</div>
@@ -364,12 +380,6 @@ const Chat: Component = () => {
             </div>
           </Show>
         </Show>
-        <div class="report-hint">
-          Something wrong?{" "}
-          <a href="#" onClick={(e) => e.preventDefault()}>
-            Report a user
-          </a>
-        </div>
       </Show>
 
       <Show when={activeConvo()}>
@@ -390,8 +400,10 @@ const Chat: Component = () => {
                   <path d="M10 2L2 10l8 8" />
                 </svg>
               </button>
-              <div class="convo-avatar">
-                {getInitials(convo().otherUser.name)}
+              <div class={`convo-avatar${convo().otherUser.avatar_url ? " avatar-photo" : ""}`}>
+                <Show when={convo().otherUser.avatar_url} fallback={getInitials(convo().otherUser.name)}>
+                  <img src={convo().otherUser.avatar_url!} alt={convo().otherUser.name} />
+                </Show>
               </div>
               <div>
                 <span class="convo-name">{convo().otherUser.name}</span>

@@ -100,6 +100,7 @@ const Onboarding: Component = () => {
   const [isTyping, setIsTyping] = createSignal(false);
   const [isDone, setIsDone] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
+  const [locationText, setLocationText] = createSignal("");
   const [showChips, setShowChips] = createSignal(false);
   const [placeholderIdx, setPlaceholderIdx] = createSignal(0);
 
@@ -224,7 +225,7 @@ const Onboarding: Component = () => {
       ideal_hangouts: answers[3],
       political_alignment: answers[4][0] ?? null,
       fun_fact: answers[5][0] ?? null,
-      location: null, // Will be set via geolocation later
+      location: locationText().trim() || null,
       verified: false,
     });
 
@@ -324,6 +325,16 @@ const Onboarding: Component = () => {
 
       <Show when={isDone()}>
         <div class="onboarding-done">
+          <div style="width:100%;margin-bottom:16px">
+            <input
+              type="text"
+              class="onboarding-text-input"
+              placeholder="Your neighborhood (e.g. Newport Beach)"
+              value={locationText()}
+              onInput={(e) => setLocationText(e.currentTarget.value)}
+              style="width:100%;box-sizing:border-box"
+            />
+          </div>
           <button
             class="landing-cta"
             onClick={finishOnboarding}

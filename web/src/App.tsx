@@ -1,6 +1,7 @@
-import { type ParentComponent, Show, createEffect } from "solid-js";
+import { type ParentComponent, Show, For, createEffect } from "solid-js";
 import { A, useNavigate } from "@solidjs/router";
 import { useAuth } from "./context/AuthContext";
+import { toasts } from "./lib/toast";
 
 const App: ParentComponent = (props) => {
   const { session, profile, loading } = useAuth();
@@ -25,26 +26,12 @@ const App: ParentComponent = (props) => {
         </div>
       }
     >
-      {/* Status Bar */}
-      <div class="status-bar">
-        <span class="status-time">9:41</span>
-        <div class="status-icons">
-          <svg width="17" height="12" viewBox="0 0 17 12">
-            <rect x="0" y="9" width="3" height="3" rx="0.5" fill="currentColor" />
-            <rect x="4.5" y="6" width="3" height="6" rx="0.5" fill="currentColor" />
-            <rect x="9" y="3" width="3" height="9" rx="0.5" fill="currentColor" />
-            <rect x="13.5" y="0" width="3" height="12" rx="0.5" fill="currentColor" />
-          </svg>
-          <svg width="16" height="12" viewBox="0 0 16 12">
-            <path d="M8 10a1.2 1.2 0 110 2.4A1.2 1.2 0 018 10zm0-3.5c1.8 0 3.4.73 4.6 1.9l-1.2 1.3C10.5 8.8 9.3 8.3 8 8.3s-2.5.5-3.4 1.4L3.4 8.4C4.6 7.23 6.2 6.5 8 6.5zm0-3.5c2.7 0 5.2 1.1 7 3l-1.2 1.3C12.2 5.7 10.2 4.8 8 4.8S3.8 5.7 2.2 7.3L1 6C2.8 4.1 5.3 3 8 3z" fill="currentColor" />
-          </svg>
-          <svg width="27" height="12" viewBox="0 0 27 12">
-            <rect x="0.5" y="0.5" width="22" height="11" rx="2.5" stroke="currentColor" stroke-width="1" fill="none" />
-            <rect x="1.5" y="2" width="17.5" height="8" rx="1.5" fill="currentColor" />
-            <path d="M24 4v4a2.2 2.2 0 000-4z" fill="currentColor" opacity="0.35" />
-          </svg>
-        </div>
-      </div>
+      {/* Toast Notifications */}
+      <For each={toasts()}>
+        {(toast) => (
+          <div class={`toast toast-${toast.type}`}>{toast.message}</div>
+        )}
+      </For>
 
       {/* Page Content */}
       <div class="page-wrapper">

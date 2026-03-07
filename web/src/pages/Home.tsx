@@ -4,6 +4,7 @@ import type { UserProfile } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import { rankUsersByCompatibility } from "../lib/matching";
 import { useNavigate } from "@solidjs/router";
+import { showToast } from "../lib/toast";
 
 const VerifiedBadge = () => (
   <div class="verified-badge">
@@ -27,26 +28,32 @@ const Home: Component = () => {
     if (!myProfile) return;
     const myId = myProfile.id;
 
-    const [usersRes, sentRes, receivedRes] = await Promise.all([
-      supabase.from("users").select("*").neq("id", myId),
-      supabase.from("waves").select("target_id").eq("user_id", myId),
-      supabase.from("waves").select("user_id").eq("target_id", myId),
-    ]);
+    try {
+      const [usersRes, sentRes, receivedRes] = await Promise.all([
+        supabase.from("users").select("*").neq("id", myId),
+        supabase.from("waves").select("target_id").eq("user_id", myId),
+        supabase.from("waves").select("user_id").eq("target_id", myId),
+      ]);
 
-    if (usersRes.data) {
-      const ranked = rankUsersByCompatibility(
-        myProfile,
-        usersRes.data as UserProfile[]
-      );
-      setPeople(ranked);
-    }
+      if (usersRes.error) throw usersRes.error;
 
-    if (sentRes.data) {
-      setSentWaves(new Set(sentRes.data.map((w) => w.target_id)));
-    }
+      if (usersRes.data) {
+        const ranked = rankUsersByCompatibility(
+          myProfile,
+          usersRes.data as UserProfile[]
+        );
+        setPeople(ranked);
+      }
 
-    if (receivedRes.data) {
-      setReceivedWaves(new Set(receivedRes.data.map((w) => w.user_id)));
+      if (sentRes.data) {
+        setSentWaves(new Set(sentRes.data.map((w) => w.target_id)));
+      }
+
+      if (receivedRes.data) {
+        setReceivedWaves(new Set(receivedRes.data.map((w) => w.user_id)));
+      }
+    } catch {
+      showToast("Failed to load people nearby");
     }
 
     setLoading(false);
@@ -64,10 +71,19 @@ const Home: Component = () => {
     // Optimistic UI update
     setSentWaves((prev) => new Set(prev).add(personId));
 
-    await supabase.from("waves").insert({
+    const { error } = await supabase.from("waves").insert({
       user_id: myProfile.id,
       target_id: personId,
     });
+
+    if (error) {
+      setSentWaves((prev) => {
+        const next = new Set(prev);
+        next.delete(personId);
+        return next;
+      });
+      showToast("Failed to send wave");
+    }
   };
 
   const handleWaveClick = (personId: string) => {
@@ -101,9 +117,6 @@ const Home: Component = () => {
             {profile()?.location ?? "Nearby"} · {people().length} people nearby
           </div>
         </div>
-        <div class="nav-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        </div>
       </div>
 
       <Show when={!loading()} fallback={
@@ -120,8 +133,10 @@ const Home: Component = () => {
             <For each={people()}>
               {(person) => (
                 <div class="discover-card">
-                  <div class={`discover-avatar${isMatched(person.id) ? " avatar-photo" : ""}`}>
-                    {getInitials(person.name)}
+                  <div class={`discover-avatar${person.avatar_url ? " avatar-photo" : ""}`}>
+                    <Show when={person.avatar_url} fallback={getInitials(person.name)}>
+                      <img src={person.avatar_url!} alt={person.name} />
+                    </Show>
                     <Show when={person.verified}>
                       <VerifiedBadge />
                     </Show>
