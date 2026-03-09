@@ -2,6 +2,13 @@ import { createSignal, onMount, Show, For, type Component } from "solid-js";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import { showToast } from "../lib/toast";
+import {
+  loadGoogleMaps,
+  isGoogleMapsLoaded,
+  attachAutocomplete,
+  getPlacePhoto,
+  type PlaceResult,
+} from "../lib/google-places";
 
 interface EventRow {
   id: string;
@@ -13,11 +20,13 @@ interface EventRow {
   capacity: number | null;
   price: string | null;
   image_url: string | null;
+  place_id: string | null;
   created_at: string;
   event_rsvps: { count: number }[];
 }
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
@@ -26,6 +35,11 @@ function formatTime(iso: string): string {
   const ampm = h >= 12 ? "PM" : "AM";
   h = h % 12 || 12;
   return `${h}:${m.toString().padStart(2, "0")} ${ampm}`;
+}
+
+function formatFullDate(iso: string): string {
+  const d = new Date(iso);
+  return `${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
 const Events: Component = () => {
@@ -37,6 +51,11 @@ const Events: Component = () => {
   const [showModal, setShowModal] = createSignal(false);
   const [submitting, setSubmitting] = createSignal(false);
 
+  // Event detail modal
+  const [selectedEvent, setSelectedEvent] = createSignal<EventRow | null>(null);
+  const [detailPhoto, setDetailPhoto] = createSignal<string | null>(null);
+  const [loadingPhoto, setLoadingPhoto] = createSignal(false);
+
   // Form fields
   const [title, setTitle] = createSignal("");
   const [description, setDescription] = createSignal("");
@@ -44,6 +63,14 @@ const Events: Component = () => {
   const [date, setDate] = createSignal("");
   const [capacity, setCapacity] = createSignal("");
   const [price, setPrice] = createSignal("");
+  const [placeId, setPlaceId] = createSignal<string | null>(null);
+
+  let locationInputRef: HTMLInputElement | undefined;
+
+  onMount(async () => {
+    loadGoogleMaps().catch(() => {});
+    await loadAll();
+  });
 
   const fetchEvents = async () => {
     const { data, error } = await supabase
@@ -77,11 +104,8 @@ const Events: Component = () => {
     setLoading(false);
   };
 
-  onMount(() => {
-    loadAll();
-  });
-
-  const toggleRsvp = async (eventId: string) => {
+  const toggleRsvp = async (eventId: string, e?: MouseEvent) => {
+    if (e) e.stopPropagation();
     const myId = user()?.id;
     if (!myId) return;
 
@@ -90,21 +114,17 @@ const Events: Component = () => {
     // Optimistic update
     setMyRsvps((prev) => {
       const next = new Set(prev);
-      if (isGoing) {
-        next.delete(eventId);
-      } else {
-        next.add(eventId);
-      }
+      if (isGoing) next.delete(eventId);
+      else next.add(eventId);
       return next;
     });
 
-    // Optimistic count update
     setEvents((prev) =>
-      prev.map((e) => {
-        if (e.id !== eventId) return e;
-        const currentCount = e.event_rsvps[0]?.count ?? 0;
+      prev.map((ev) => {
+        if (ev.id !== eventId) return ev;
+        const currentCount = ev.event_rsvps[0]?.count ?? 0;
         const newCount = isGoing ? Math.max(0, currentCount - 1) : currentCount + 1;
-        return { ...e, event_rsvps: [{ count: newCount }] };
+        return { ...ev, event_rsvps: [{ count: newCount }] };
       })
     );
 
@@ -122,7 +142,6 @@ const Events: Component = () => {
     }
 
     if (error) {
-      // Revert optimistic updates
       setMyRsvps((prev) => {
         const next = new Set(prev);
         if (isGoing) next.add(eventId);
@@ -130,17 +149,36 @@ const Events: Component = () => {
         return next;
       });
       setEvents((prev) =>
-        prev.map((e) => {
-          if (e.id !== eventId) return e;
-          const currentCount = e.event_rsvps[0]?.count ?? 0;
+        prev.map((ev) => {
+          if (ev.id !== eventId) return ev;
+          const currentCount = ev.event_rsvps[0]?.count ?? 0;
           const newCount = isGoing ? currentCount + 1 : Math.max(0, currentCount - 1);
-          return { ...e, event_rsvps: [{ count: newCount }] };
+          return { ...ev, event_rsvps: [{ count: newCount }] };
         })
       );
       showToast("Failed to update RSVP");
     }
   };
 
+  // -- Event Detail Modal --
+  const openEventDetail = async (event: EventRow) => {
+    setSelectedEvent(event);
+    setDetailPhoto(null);
+    setLoadingPhoto(true);
+
+    if (event.place_id && isGoogleMapsLoaded()) {
+      const photo = await getPlacePhoto(event.place_id);
+      setDetailPhoto(photo);
+    }
+    setLoadingPhoto(false);
+  };
+
+  const closeDetail = () => {
+    setSelectedEvent(null);
+    setDetailPhoto(null);
+  };
+
+  // -- Create Event Form --
   const resetForm = () => {
     setTitle("");
     setDescription("");
@@ -148,6 +186,20 @@ const Events: Component = () => {
     setDate("");
     setCapacity("");
     setPrice("");
+    setPlaceId(null);
+  };
+
+  const openCreateModal = () => {
+    setShowModal(true);
+    // Attach autocomplete after DOM updates
+    setTimeout(() => {
+      if (locationInputRef && isGoogleMapsLoaded()) {
+        attachAutocomplete(locationInputRef, (place: PlaceResult) => {
+          setLocation(place.name + " — " + place.formatted_address);
+          setPlaceId(place.place_id);
+        });
+      }
+    }, 100);
   };
 
   const handleCreate = async (e: Event) => {
@@ -165,6 +217,7 @@ const Events: Component = () => {
       date: new Date(date()).toISOString(),
       capacity: capacity() ? parseInt(capacity(), 10) : null,
       price: price().trim() || null,
+      place_id: placeId(),
     };
 
     const { error } = await supabase.from("events").insert(payload);
@@ -181,23 +234,16 @@ const Events: Component = () => {
     await loadAll();
   };
 
-  const getRsvpCount = (event: EventRow): number => {
-    return event.event_rsvps[0]?.count ?? 0;
-  };
+  const getRsvpCount = (event: EventRow): number => event.event_rsvps[0]?.count ?? 0;
 
   const getCapacityDisplay = (event: EventRow): string => {
     const count = getRsvpCount(event);
-    if (event.capacity) {
-      return `${count}/${event.capacity}`;
-    }
+    if (event.capacity) return `${count}/${event.capacity}`;
     return count > 0 ? `${count} going` : "Open";
   };
 
   const getPriceDisplay = (event: EventRow): string => {
-    if (!event.price || event.price === "0" || event.price.toLowerCase() === "free") {
-      return "Free";
-    }
-    // If price already has $, use as-is; otherwise prepend $
+    if (!event.price || event.price === "0" || event.price.toLowerCase() === "free") return "Free";
     return event.price.startsWith("$") ? event.price : `$${event.price}`;
   };
 
@@ -208,7 +254,7 @@ const Events: Component = () => {
         <div
           class="nav-icon"
           style="background:none;font-size:28px;color:var(--primary)"
-          onClick={() => setShowModal(true)}
+          onClick={openCreateModal}
         >
           +
         </div>
@@ -237,7 +283,7 @@ const Events: Component = () => {
                   !isGoing();
 
                 return (
-                  <div class="event-row">
+                  <div class="event-row event-row-clickable" onClick={() => openEventDetail(event)}>
                     <div class="event-date">
                       <div class="month">{month}</div>
                       <div class="day">{day}</div>
@@ -255,7 +301,7 @@ const Events: Component = () => {
                       <Show when={user()}>
                         <button
                           class={`rsvp-btn ${isGoing() ? "rsvp-btn-going" : isFull() ? "rsvp-btn-full" : "rsvp-btn-default"}`}
-                          onClick={() => toggleRsvp(event.id)}
+                          onClick={(e) => toggleRsvp(event.id, e)}
                           disabled={isFull()}
                         >
                           {isGoing() ? "Going" : isFull() ? "Full" : "RSVP"}
@@ -270,7 +316,94 @@ const Events: Component = () => {
         </Show>
       </Show>
 
-      {/* Create Event Bottom Sheet */}
+      {/* ========== Event Detail Modal ========== */}
+      <Show when={selectedEvent()}>
+        {(ev) => {
+          const isGoing = () => myRsvps().has(ev().id);
+          const isFull = () =>
+            ev().capacity != null &&
+            getRsvpCount(ev()) >= ev().capacity &&
+            !isGoing();
+
+          return (
+            <div class="modal-overlay" onClick={closeDetail}>
+              <div class="event-detail-sheet" onClick={(e) => e.stopPropagation()}>
+                {/* Place photo hero */}
+                <div class="event-detail-hero">
+                  <Show when={detailPhoto()} fallback={
+                    <Show when={loadingPhoto()} fallback={
+                      <div class="event-detail-hero-placeholder">
+                        <span>📍</span>
+                        <span>{ev().location ?? "Event"}</span>
+                      </div>
+                    }>
+                      <div class="event-detail-hero-placeholder">
+                        <div class="loading-spinner" />
+                      </div>
+                    </Show>
+                  }>
+                    <img src={detailPhoto()!} alt={ev().location ?? ev().title} class="event-detail-hero-img" />
+                  </Show>
+                  <button class="event-detail-close" onClick={closeDetail}>✕</button>
+                </div>
+
+                <div class="event-detail-body">
+                  <h2 class="event-detail-title">{ev().title}</h2>
+
+                  <div class="event-detail-row">
+                    <span class="event-detail-icon">📅</span>
+                    <div>
+                      <div class="event-detail-label">{formatFullDate(ev().date)}</div>
+                      <div class="event-detail-sub">{formatTime(ev().date)}</div>
+                    </div>
+                  </div>
+
+                  <Show when={ev().location}>
+                    <div class="event-detail-row">
+                      <span class="event-detail-icon">📍</span>
+                      <div>
+                        <div class="event-detail-label">{ev().location}</div>
+                      </div>
+                    </div>
+                  </Show>
+
+                  <div class="event-detail-row">
+                    <span class="event-detail-icon">👥</span>
+                    <div>
+                      <div class="event-detail-label">{getCapacityDisplay(ev())}</div>
+                    </div>
+                  </div>
+
+                  <div class="event-detail-row">
+                    <span class="event-detail-icon">💰</span>
+                    <div>
+                      <div class="event-detail-label">{getPriceDisplay(ev())}</div>
+                    </div>
+                  </div>
+
+                  <Show when={ev().description}>
+                    <div class="event-detail-description">
+                      {ev().description}
+                    </div>
+                  </Show>
+
+                  <Show when={user()}>
+                    <button
+                      class={`event-detail-rsvp ${isGoing() ? "event-detail-rsvp-going" : isFull() ? "event-detail-rsvp-full" : ""}`}
+                      onClick={() => toggleRsvp(ev().id)}
+                      disabled={isFull()}
+                    >
+                      {isGoing() ? "✓ Going" : isFull() ? "Full" : "RSVP to this event"}
+                    </button>
+                  </Show>
+                </div>
+              </div>
+            </div>
+          );
+        }}
+      </Show>
+
+      {/* ========== Create Event Bottom Sheet ========== */}
       <Show when={showModal()}>
         <div class="modal-overlay" onClick={() => setShowModal(false)}>
           <div class="bottom-sheet" onClick={(e) => e.stopPropagation()}>
@@ -297,10 +430,15 @@ const Events: Component = () => {
               <div class="sheet-field">
                 <label>Location</label>
                 <input
+                  ref={locationInputRef}
                   type="text"
                   value={location()}
-                  onInput={(e) => setLocation(e.currentTarget.value)}
-                  placeholder="Where is it?"
+                  onInput={(e) => {
+                    setLocation(e.currentTarget.value);
+                    setPlaceId(null);
+                  }}
+                  placeholder="Search for a place..."
+                  autocomplete="off"
                 />
               </div>
               <div class="sheet-field">

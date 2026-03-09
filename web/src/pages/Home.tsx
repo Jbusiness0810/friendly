@@ -13,9 +13,7 @@ const VerifiedBadge = () => (
 );
 
 const WaveIcon = () => (
-  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="flex-shrink:0">
-    <path d="M7.03 4.95c.44-1.27 1.76-1.94 2.96-1.5.56.21 1 .62 1.24 1.14l1.72 4.47 1.24-3.2c.44-1.27 1.76-1.94 2.96-1.5 1.2.44 1.83 1.78 1.39 3.05l-.7 1.82.52-.19c1.2-.44 2.52.23 2.96 1.5.44 1.27-.19 2.61-1.39 3.05l-1.06.39.2.52c.44 1.27-.19 2.61-1.39 3.05l-4.73 1.73c-3.6 1.32-7.57-.56-8.89-4.18L2.47 10.6c-.44-1.27.19-2.61 1.39-3.05 1.2-.44 2.52.23 2.96 1.5l.21.56z" />
-  </svg>
+  <img src="/icon.png" alt="wave" width="16" height="16" style="border-radius:3px;flex-shrink:0" />
 );
 
 const Home: Component = () => {
