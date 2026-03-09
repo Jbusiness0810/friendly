@@ -6,14 +6,20 @@ import { rankUsersByCompatibility } from "../lib/matching";
 import { useNavigate } from "@solidjs/router";
 import { showToast } from "../lib/toast";
 
-const VerifiedBadge = () => (
-  <div class="verified-badge">
-    <svg viewBox="0 0 12 12" fill="white"><path d="M4.5 8.5L2 6l.7-.7L4.5 7.1l4.8-4.8.7.7z" /></svg>
-  </div>
+const WaveIcon = () => (
+  <img src="/icon.png" alt="wave" width="26" height="26" style="border-radius:4px;flex-shrink:0" />
 );
 
-const WaveIcon = () => (
-  <img src="/icon.png" alt="wave" width="18" height="18" style="border-radius:4px;flex-shrink:0" />
+const CheckIcon = () => (
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="color:var(--text-secondary)">
+    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+  </svg>
+);
+
+const ChatIcon = () => (
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="white">
+    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
+  </svg>
 );
 
 const Home: Component = () => {
@@ -125,12 +131,6 @@ const Home: Component = () => {
       .toUpperCase()
       .slice(0, 2);
 
-  const getButtonLabel = (personId: string) => {
-    if (isMatched(personId)) return "Matched";
-    if (hasSentWave(personId)) return "Waved ✓";
-    return "Wave";
-  };
-
   return (
     <>
       <div class="nav-header">
@@ -152,38 +152,61 @@ const Home: Component = () => {
             No one nearby yet
           </div>
         }>
-          <div>
+          <div class="discover-feed">
             <For each={people()}>
               {(person) => (
                 <div class="discover-card" onClick={() => navigate(`/user/${person.id}`)}>
-                  <div class={`discover-avatar${person.avatar_url ? " avatar-photo" : ""}`}>
-                    <Show when={person.avatar_url} fallback={getInitials(person.name)}>
-                      <img src={person.avatar_url!} alt={person.name} />
-                    </Show>
-                    <Show when={person.verified}>
-                      <VerifiedBadge />
+                  {/* Hero photo */}
+                  <div class={`discover-photo${!person.avatar_url ? " discover-photo-gradient" : ""}`}>
+                    <Show when={person.avatar_url} fallback={
+                      <span class="discover-photo-initials">{getInitials(person.name)}</span>
+                    }>
+                      <img src={person.avatar_url!} alt={person.name} loading="lazy" />
                     </Show>
                   </div>
+
+                  {/* Info section */}
                   <div class="discover-info">
-                    <div class="discover-name">{person.name}</div>
-                    <div class="discover-location">{person.location ?? "Nearby"}</div>
-                    <div class="discover-bio">{person.bio}</div>
-                    <div class="discover-bottom">
-                      <div class="discover-tags">
-                        <For each={person.interests.slice(0, 3)}>
-                          {(tag) => <span class="interest-tag">{tag}</span>}
-                        </For>
-                      </div>
-                      <button
-                        class={`wave-btn${isMatched(person.id) ? " wave-btn-matched" : hasSentWave(person.id) ? " wave-btn-waved" : ""}`}
-                        onClick={(e) => { e.stopPropagation(); handleWaveClick(person.id); }}
-                      >
-                        <Show when={!isMatched(person.id) && !hasSentWave(person.id)}>
-                          <WaveIcon />
-                        </Show>
-                        {getButtonLabel(person.id)}
-                      </button>
+                    {/* Floating wave button */}
+                    <button
+                      class={`wave-btn${isMatched(person.id) ? " wave-btn-matched" : hasSentWave(person.id) ? " wave-btn-waved" : ""}`}
+                      onClick={(e) => { e.stopPropagation(); handleWaveClick(person.id); }}
+                    >
+                      <Show when={isMatched(person.id)}>
+                        <ChatIcon />
+                      </Show>
+                      <Show when={hasSentWave(person.id) && !isMatched(person.id)}>
+                        <CheckIcon />
+                      </Show>
+                      <Show when={!hasSentWave(person.id) && !isMatched(person.id)}>
+                        <WaveIcon />
+                      </Show>
+                    </button>
+
+                    <div class="discover-name-row">
+                      <span class="discover-name">{person.name}</span>
+                      <Show when={person.verified}>
+                        <div class="discover-name-verified">
+                          <svg viewBox="0 0 12 12" fill="white"><path d="M4.5 8.5L2 6l.7-.7L4.5 7.1l4.8-4.8.7.7z" /></svg>
+                        </div>
+                      </Show>
                     </div>
+
+                    <div class="discover-location">{person.location ?? "Nearby"}</div>
+
+                    <Show when={person.bio}>
+                      <div class="discover-bio">{person.bio}</div>
+                    </Show>
+
+                    <Show when={person.interests.length > 0}>
+                      <div class="discover-bottom">
+                        <div class="discover-tags">
+                          <For each={person.interests.slice(0, 3)}>
+                            {(tag) => <span class="interest-tag">{tag}</span>}
+                          </For>
+                        </div>
+                      </div>
+                    </Show>
                   </div>
                 </div>
               )}

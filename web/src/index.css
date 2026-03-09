@@ -16,6 +16,7 @@
     --input-bg: #FFFFFF;
     --avatar-bg: #C7C7CC;
     --avatar-group-bg: #E5E5EA;
+    --wave-yellow: #FFC629;
 }
 
 /* Dark mode */
@@ -36,6 +37,7 @@
     --input-bg: #2c2c2e;
     --avatar-bg: #48484a;
     --avatar-group-bg: #3a3a3c;
+    --wave-yellow: #FFC629;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { height: 100%; }
@@ -181,10 +183,11 @@ body {
 .interest-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .interest-tag {
     font-size: 12px;
-    padding: 0;
-    background: none;
+    font-weight: 500;
+    padding: 4px 10px;
+    background: var(--active-bg);
     color: var(--text-secondary);
-    border-radius: 0;
+    border-radius: 12px;
 }
 .interest-tag:active { opacity: 0.7; }
 
@@ -199,39 +202,57 @@ body {
 }
 
 /* ================================================================ */
-/* DISCOVER FEED (HOME)                                             */
+/* DISCOVER FEED (HOME) — Photo-Dominant Cards                      */
 /* ================================================================ */
+.discover-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 8px 16px 16px;
+}
 .discover-card {
     background: var(--card);
-    border-radius: 0;
-    box-shadow: none;
-    padding: 12px 20px;
-    margin-bottom: 0;
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    border-bottom: 0.5px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+    position: relative;
 }
-.discover-card { cursor: pointer; }
-.discover-card:active { background: var(--active-bg); }
-.discover-avatar {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
+.discover-card:active { transform: scale(0.98); }
+[data-theme="dark"] .discover-card {
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    border: 0.5px solid var(--border);
+}
+
+/* Hero photo area */
+.discover-photo {
+    width: 100%;
+    aspect-ratio: 4 / 5;
     background: var(--avatar-bg);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
-    font-weight: 600;
-    color: #FFFFFF;
-    flex-shrink: 0;
+    overflow: hidden;
     position: relative;
 }
-.avatar-photo {
-    overflow: hidden;
+.discover-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
-.discover-avatar img,
+.discover-photo-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.discover-photo-initials {
+    font-size: 48px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* Shared avatar styles (chat, convo, profile) */
+.avatar-photo { overflow: hidden; }
 .chat-avatar img,
 .convo-avatar img,
 .profile-avatar img {
@@ -241,6 +262,7 @@ body {
     object-fit: cover;
 }
 
+/* Verified badge (used on chat/convo avatars) */
 .verified-badge {
     position: absolute;
     bottom: -2px;
@@ -255,41 +277,85 @@ body {
     justify-content: center;
 }
 .verified-badge svg { width: 10px; height: 10px; }
-.discover-info { flex: 1; min-width: 0; }
-.discover-name { font-size: 15px; font-weight: 600; }
-.discover-location { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
-.discover-bio { font-size: 13px; color: var(--text-secondary); margin-top: 4px; line-height: 1.35; }
-.discover-bottom {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 10px;
+
+/* Card info section */
+.discover-info {
+    padding: 14px 16px 16px;
+    position: relative;
 }
-.discover-tags { display: flex; gap: 4px; }
-.discover-tags .interest-tag { font-size: 12px; padding: 0; }
-.wave-btn {
-    display: inline-flex;
+.discover-name-row {
+    display: flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 16px;
-    background: var(--primary);
-    color: #FFFFFF;
-    border: none;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
+    padding-right: 56px;
 }
-.wave-btn:active { transform: scale(0.95); opacity: 0.9; }
+.discover-name {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.discover-name-verified {
+    width: 16px;
+    height: 16px;
+    background: var(--blue);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.discover-name-verified svg { width: 10px; height: 10px; }
+.discover-location {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+.discover-bio {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.discover-bottom { margin-top: 10px; }
+.discover-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ================================================================ */
+/* WAVE BUTTON — Circular FAB                                        */
+/* ================================================================ */
+.wave-btn {
+    position: absolute;
+    top: -24px;
+    right: 16px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--wave-yellow);
+    border: 3px solid var(--card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 2;
+    padding: 0;
+}
+.wave-btn:active { transform: scale(0.9); }
+.wave-btn img {
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+}
 .wave-btn-waved {
     background: var(--active-bg);
-    color: var(--text-secondary);
+    box-shadow: none;
 }
 .wave-btn-matched {
     background: #34C759;
-    color: #FFFFFF;
 }
 
 /* ================================================================ */
