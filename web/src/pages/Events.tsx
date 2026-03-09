@@ -61,7 +61,8 @@ const Events: Component = () => {
   const [title, setTitle] = createSignal("");
   const [description, setDescription] = createSignal("");
   const [location, setLocation] = createSignal("");
-  const [date, setDate] = createSignal("");
+  const [eventDate, setEventDate] = createSignal("");
+  const [eventTime, setEventTime] = createSignal("");
   const [capacity, setCapacity] = createSignal("");
   const [price, setPrice] = createSignal("");
   const [placeId, setPlaceId] = createSignal<string | null>(null);
@@ -170,12 +171,15 @@ const Events: Component = () => {
     if (isGoogleMapsLoaded()) {
       let photo: string | null = null;
 
-      // Try place_id first, then fall back to text search by location name
+      // Try place_id first, then location text, then event title
       if (event.place_id) {
         photo = await getPlacePhoto(event.place_id);
       }
       if (!photo && event.location) {
         photo = await searchPlacePhoto(event.location);
+      }
+      if (!photo && event.title) {
+        photo = await searchPlacePhoto(event.title);
       }
 
       setDetailPhoto(photo);
@@ -193,7 +197,8 @@ const Events: Component = () => {
     setTitle("");
     setDescription("");
     setLocation("");
-    setDate("");
+    setEventDate("");
+    setEventTime("");
     setCapacity("");
     setPrice("");
     setPlaceId(null);
@@ -215,16 +220,20 @@ const Events: Component = () => {
   const handleCreate = async (e: Event) => {
     e.preventDefault();
     const myId = user()?.id;
-    if (!myId || !title().trim() || !date()) return;
+    if (!myId || !title().trim() || !eventDate()) return;
 
     setSubmitting(true);
+
+    // Combine date + time (default to 12:00 PM if no time set)
+    const timeStr = eventTime() || "12:00";
+    const combined = `${eventDate()}T${timeStr}`;
 
     const payload: Record<string, unknown> = {
       creator_id: myId,
       title: title().trim(),
       description: description().trim() || null,
       location: location().trim() || null,
-      date: new Date(date()).toISOString(),
+      date: new Date(combined).toISOString(),
       capacity: capacity() ? parseInt(capacity(), 10) : null,
       price: price().trim() || null,
       place_id: placeId(),
@@ -454,14 +463,24 @@ const Events: Component = () => {
                   <div ref={locationContainerRef} class="places-autocomplete-container" />
                 </Show>
               </div>
-              <div class="sheet-field">
-                <label>Date & Time *</label>
-                <input
-                  type="datetime-local"
-                  value={date()}
-                  onInput={(e) => setDate(e.currentTarget.value)}
-                  required
-                />
+              <div class="sheet-row">
+                <div class="sheet-field" style="flex:1.2">
+                  <label>Date *</label>
+                  <input
+                    type="date"
+                    value={eventDate()}
+                    onInput={(e) => setEventDate(e.currentTarget.value)}
+                    required
+                  />
+                </div>
+                <div class="sheet-field" style="flex:0.8">
+                  <label>Time</label>
+                  <input
+                    type="time"
+                    value={eventTime()}
+                    onInput={(e) => setEventTime(e.currentTarget.value)}
+                  />
+                </div>
               </div>
               <div class="sheet-row">
                 <div class="sheet-field">
@@ -471,7 +490,7 @@ const Events: Component = () => {
                     min="1"
                     value={capacity()}
                     onInput={(e) => setCapacity(e.currentTarget.value)}
-                    placeholder="Unlimited"
+                    placeholder="No limit"
                   />
                 </div>
                 <div class="sheet-field">
@@ -495,7 +514,7 @@ const Events: Component = () => {
                 <button
                   type="submit"
                   class="sheet-btn sheet-btn-submit"
-                  disabled={submitting() || !title().trim() || !date()}
+                  disabled={submitting() || !title().trim() || !eventDate()}
                 >
                   {submitting() ? "Creating..." : "Create Event"}
                 </button>
