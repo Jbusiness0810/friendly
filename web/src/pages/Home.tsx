@@ -12,6 +12,12 @@ const VerifiedBadge = () => (
   </div>
 );
 
+const WaveIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="flex-shrink:0">
+    <path d="M7.03 4.95c.44-1.27 1.76-1.94 2.96-1.5.56.21 1 .62 1.24 1.14l1.72 4.47 1.24-3.2c.44-1.27 1.76-1.94 2.96-1.5 1.2.44 1.83 1.78 1.39 3.05l-.7 1.82.52-.19c1.2-.44 2.52.23 2.96 1.5.44 1.27-.19 2.61-1.39 3.05l-1.06.39.2.52c.44 1.27-.19 2.61-1.39 3.05l-4.73 1.73c-3.6 1.32-7.57-.56-8.89-4.18L2.47 10.6c-.44-1.27.19-2.61 1.39-3.05 1.2-.44 2.52.23 2.96 1.5l.21.56z" />
+  </svg>
+);
+
 const Home: Component = () => {
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -151,7 +157,7 @@ const Home: Component = () => {
           <div>
             <For each={people()}>
               {(person) => (
-                <div class="discover-card">
+                <div class="discover-card" onClick={() => navigate(`/user/${person.id}`)}>
                   <div class={`discover-avatar${person.avatar_url ? " avatar-photo" : ""}`}>
                     <Show when={person.avatar_url} fallback={getInitials(person.name)}>
                       <img src={person.avatar_url!} alt={person.name} />
@@ -172,13 +178,16 @@ const Home: Component = () => {
                       </div>
                       <button
                         class="wave-btn"
-                        onClick={() => handleWaveClick(person.id)}
+                        onClick={(e) => { e.stopPropagation(); handleWaveClick(person.id); }}
                         style={
                           isMatched(person.id) || hasSentWave(person.id)
                             ? "color: var(--text-secondary)"
                             : ""
                         }
                       >
+                        <Show when={!isMatched(person.id) && !hasSentWave(person.id)}>
+                          <WaveIcon />
+                        </Show>
                         {getButtonLabel(person.id)}
                       </button>
                     </div>

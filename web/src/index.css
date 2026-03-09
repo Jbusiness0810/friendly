@@ -212,6 +212,7 @@ body {
     align-items: center;
     border-bottom: 0.5px solid var(--border);
 }
+.discover-card { cursor: pointer; }
 .discover-card:active { background: var(--active-bg); }
 .discover-avatar {
     width: 48px;
@@ -267,6 +268,9 @@ body {
 .discover-tags { display: flex; gap: 4px; }
 .discover-tags .interest-tag { font-size: 12px; padding: 0; }
 .wave-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     padding: 6px 0;
     background: none;
     color: var(--primary);
@@ -317,7 +321,12 @@ body {
 /* ================================================================ */
 /* CHAT — iMESSAGE STYLE                                           */
 /* ================================================================ */
+.chat-list {
+    position: relative;
+    z-index: 1;
+}
 .chat-row {
+    position: relative;
     display: flex;
     gap: 12px;
     align-items: center;
@@ -1196,4 +1205,42 @@ body {
     text-decoration: none;
     font-size: 15px;
     font-weight: 500;
+}
+
+/* ================================================================ */
+/* USER PROFILE VIEW                                                 */
+/* ================================================================ */
+.user-profile-wave-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: calc(100% - 40px);
+    margin: 20px auto;
+    padding: 14px;
+    background: var(--primary);
+    color: #FFFFFF;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 17px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+.user-profile-wave-btn:active { transform: scale(0.97); }
+.user-profile-wave-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.user-profile-wave-btn.waved {
+    background: none;
+    color: var(--text-secondary);
+    border: 1.5px solid var(--border);
+}
+.user-profile-wave-btn.matched {
+    background: #34C759;
+    color: #FFFFFF;
+    cursor: pointer;
+    opacity: 1;
 }

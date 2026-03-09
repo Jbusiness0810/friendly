@@ -402,27 +402,20 @@ const Chat: Component = () => {
         <div class="nav-header">
           <h1>Chat</h1>
         </div>
-        <Show when={loadingList()}>
-          <div class="loading-screen">
+        <Show when={!loadingList()} fallback={
+          <div style="display:flex;justify-content:center;padding:3rem">
             <div class="loading-spinner" />
           </div>
-        </Show>
-        <Show when={!loadingList()}>
+        }>
           <Show
             when={rows().length > 0}
             fallback={
-              <div
-                style={{
-                  padding: "2rem",
-                  "text-align": "center",
-                  color: "var(--text-secondary)",
-                }}
-              >
+              <div class="empty-state">
                 No conversations yet. Wave at someone on Discover!
               </div>
             }
           >
-            <div>
+            <div class="chat-list">
               <For each={rows()}>
                 {(row) => (
                   <div

@@ -10,6 +10,7 @@ import Home from "./pages/Home";
 import Events from "./pages/Events";
 import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
+import UserProfile from "./pages/UserProfile";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import NotFound from "./pages/NotFound";
@@ -29,6 +30,7 @@ render(
             <Route path="/events" component={Events} />
             <Route path="/chat" component={Chat} />
             <Route path="/profile" component={Profile} />
+            <Route path="/user/:id" component={UserProfile} />
           </Route>
           <Route path="*" component={NotFound} />
         </Router>
