@@ -6,7 +6,7 @@ import { supabase } from "../lib/supabase";
 import { showToast } from "../lib/toast";
 
 const WaveIcon = () => (
-  <img src="/icon.png" alt="wave" width="18" height="18" style="border-radius:3px;flex-shrink:0" />
+  <img src="/icon.png" alt="wave" width="28" height="28" style="border-radius:6px;flex-shrink:0" />
 );
 
 const UserProfilePage: Component = () => {

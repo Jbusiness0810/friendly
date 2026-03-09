@@ -13,7 +13,7 @@ const VerifiedBadge = () => (
 );
 
 const WaveIcon = () => (
-  <img src="/icon.png" alt="wave" width="16" height="16" style="border-radius:3px;flex-shrink:0" />
+  <img src="/icon.png" alt="wave" width="24" height="24" style="border-radius:5px;flex-shrink:0" />
 );
 
 const Home: Component = () => {
