@@ -62,6 +62,31 @@ export async function getPlacePhoto(
   return null;
 }
 
+/** Search for a place by text query and return its photo URL */
+export async function searchPlacePhoto(
+  query: string,
+): Promise<string | null> {
+  if (!isGoogleMapsLoaded() || !query.trim()) return null;
+
+  try {
+    const { Place } = google.maps.places;
+    const request = {
+      textQuery: query,
+      fields: ["photos"],
+      maxResultCount: 1,
+    };
+    // @ts-ignore — searchByText is part of the new Places API
+    const { places } = await Place.searchByText(request);
+
+    if (places?.length && places[0].photos?.length) {
+      return places[0].photos[0].getURI({ maxWidth: 800 });
+    }
+  } catch (e) {
+    console.warn("[Friendly] Failed to search place photo:", e);
+  }
+  return null;
+}
+
 /**
  * Create a PlaceAutocompleteElement and insert it into the given container.
  * Returns the element so it can be removed later.

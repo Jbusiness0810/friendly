@@ -7,6 +7,7 @@ import {
   isGoogleMapsLoaded,
   createAutocomplete,
   getPlacePhoto,
+  searchPlacePhoto,
   type PlaceResult,
 } from "../lib/google-places";
 
@@ -166,8 +167,17 @@ const Events: Component = () => {
     setDetailPhoto(null);
     setLoadingPhoto(true);
 
-    if (event.place_id && isGoogleMapsLoaded()) {
-      const photo = await getPlacePhoto(event.place_id);
+    if (isGoogleMapsLoaded()) {
+      let photo: string | null = null;
+
+      // Try place_id first, then fall back to text search by location name
+      if (event.place_id) {
+        photo = await getPlacePhoto(event.place_id);
+      }
+      if (!photo && event.location) {
+        photo = await searchPlacePhoto(event.location);
+      }
+
       setDetailPhoto(photo);
     }
     setLoadingPhoto(false);
