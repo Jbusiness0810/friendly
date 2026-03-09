@@ -1,5 +1,5 @@
-// Google Places API helpers
-// Uses the Maps JavaScript API + Places library
+// Google Places API (New) helpers
+// Uses PlaceAutocompleteElement + Place.fetchFields()
 
 let loadPromise: Promise<void> | null = null;
 
@@ -19,7 +19,7 @@ export function loadGoogleMaps(): Promise<void> {
     }
 
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&v=weekly`;
     script.async = true;
     script.onload = () => resolve();
     script.onerror = () => reject(new Error("Failed to load Google Maps"));
@@ -42,69 +42,81 @@ export interface PlaceResult {
   lng: number;
 }
 
-/** Get a photo URL for a place_id using the Places service */
-export function getPlacePhoto(
+/** Get a photo URL for a place_id using the new Place class */
+export async function getPlacePhoto(
   placeId: string,
-  maxWidth = 800
 ): Promise<string | null> {
-  return new Promise((resolve) => {
-    if (!isGoogleMapsLoaded()) {
-      resolve(null);
-      return;
-    }
-
-    const service = new google.maps.places.PlacesService(
-      document.createElement("div")
-    );
-
-    service.getDetails(
-      { placeId, fields: ["photos"] },
-      (place, status) => {
-        if (
-          status === google.maps.places.PlacesServiceStatus.OK &&
-          place?.photos?.length
-        ) {
-          resolve(place.photos[0].getUrl({ maxWidth }));
-        } else {
-          resolve(null);
-        }
-      }
-    );
-  });
-}
-
-/** Attach autocomplete to an input element */
-export function attachAutocomplete(
-  input: HTMLInputElement,
-  onSelect: (place: PlaceResult) => void
-): google.maps.places.Autocomplete | null {
   if (!isGoogleMapsLoaded()) return null;
 
-  const autocomplete = new google.maps.places.Autocomplete(input, {
-    types: ["establishment", "geocode"],
-    fields: ["name", "formatted_address", "place_id", "geometry", "photos"],
-  });
+  try {
+    const { Place } = google.maps.places;
+    const place = new Place({ id: placeId });
+    await place.fetchFields({ fields: ["photos"] });
 
-  autocomplete.addListener("place_changed", () => {
-    const place = autocomplete.getPlace();
-    if (!place.place_id) return;
+    if (place.photos?.length) {
+      return place.photos[0].getURI({ maxWidth: 800 });
+    }
+  } catch (e) {
+    console.warn("[Friendly] Failed to fetch place photo:", e);
+  }
+  return null;
+}
 
-    const photoUrl =
-      place.photos?.length
-        ? place.photos[0].getUrl({ maxWidth: 800 })
-        : null;
+/**
+ * Create a PlaceAutocompleteElement and insert it into the given container.
+ * Returns the element so it can be removed later.
+ */
+export function createAutocomplete(
+  container: HTMLElement,
+  onSelect: (place: PlaceResult) => void
+): HTMLElement | null {
+  if (!isGoogleMapsLoaded()) return null;
 
-    onSelect({
-      name: place.name ?? "",
-      formatted_address: place.formatted_address ?? "",
-      place_id: place.place_id,
-      photo_url: photoUrl,
-      lat: place.geometry?.location?.lat() ?? 0,
-      lng: place.geometry?.location?.lng() ?? 0,
+  try {
+    // @ts-ignore — PlaceAutocompleteElement is part of the new Places API
+    const autocompleteEl = new google.maps.places.PlaceAutocompleteElement({
+      types: ["establishment", "geocode"],
     });
-  });
 
-  return autocomplete;
+    // Style the element to match our form inputs
+    autocompleteEl.style.width = "100%";
+
+    autocompleteEl.addEventListener("gmp-placeselect", async (event: any) => {
+      const place = event.place;
+      if (!place?.id) return;
+
+      try {
+        await place.fetchFields({
+          fields: ["displayName", "formattedAddress", "id", "location", "photos"],
+        });
+
+        const photoUrl =
+          place.photos?.length
+            ? place.photos[0].getURI({ maxWidth: 800 })
+            : null;
+
+        onSelect({
+          name: place.displayName ?? "",
+          formatted_address: place.formattedAddress ?? "",
+          place_id: place.id,
+          photo_url: photoUrl,
+          lat: place.location?.lat() ?? 0,
+          lng: place.location?.lng() ?? 0,
+        });
+      } catch (e) {
+        console.warn("[Friendly] Failed to fetch place details:", e);
+      }
+    });
+
+    // Clear existing content and insert
+    container.innerHTML = "";
+    container.appendChild(autocompleteEl);
+
+    return autocompleteEl as unknown as HTMLElement;
+  } catch (e) {
+    console.warn("[Friendly] Failed to create PlaceAutocompleteElement:", e);
+    return null;
+  }
 }
 
 // Extend Window for TypeScript

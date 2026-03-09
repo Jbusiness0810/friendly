@@ -5,7 +5,7 @@ import { showToast } from "../lib/toast";
 import {
   loadGoogleMaps,
   isGoogleMapsLoaded,
-  attachAutocomplete,
+  createAutocomplete,
   getPlacePhoto,
   type PlaceResult,
 } from "../lib/google-places";
@@ -65,7 +65,7 @@ const Events: Component = () => {
   const [price, setPrice] = createSignal("");
   const [placeId, setPlaceId] = createSignal<string | null>(null);
 
-  let locationInputRef: HTMLInputElement | undefined;
+  let locationContainerRef: HTMLDivElement | undefined;
 
   onMount(async () => {
     loadGoogleMaps().catch(() => {});
@@ -191,11 +191,11 @@ const Events: Component = () => {
 
   const openCreateModal = () => {
     setShowModal(true);
-    // Attach autocomplete after DOM updates
+    // Create autocomplete element after DOM updates
     setTimeout(() => {
-      if (locationInputRef && isGoogleMapsLoaded()) {
-        attachAutocomplete(locationInputRef, (place: PlaceResult) => {
-          setLocation(place.name + " — " + place.formatted_address);
+      if (locationContainerRef && isGoogleMapsLoaded()) {
+        createAutocomplete(locationContainerRef, (place: PlaceResult) => {
+          setLocation(place.name + (place.formatted_address ? " — " + place.formatted_address : ""));
           setPlaceId(place.place_id);
         });
       }
@@ -429,17 +429,20 @@ const Events: Component = () => {
               </div>
               <div class="sheet-field">
                 <label>Location</label>
-                <input
-                  ref={locationInputRef}
-                  type="text"
-                  value={location()}
-                  onInput={(e) => {
-                    setLocation(e.currentTarget.value);
-                    setPlaceId(null);
-                  }}
-                  placeholder="Search for a place..."
-                  autocomplete="off"
-                />
+                <Show when={isGoogleMapsLoaded()} fallback={
+                  <input
+                    type="text"
+                    value={location()}
+                    onInput={(e) => {
+                      setLocation(e.currentTarget.value);
+                      setPlaceId(null);
+                    }}
+                    placeholder="Type a location..."
+                    autocomplete="off"
+                  />
+                }>
+                  <div ref={locationContainerRef} class="places-autocomplete-container" />
+                </Show>
               </div>
               <div class="sheet-field">
                 <label>Date & Time *</label>

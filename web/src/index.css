@@ -1225,6 +1225,14 @@ body {
 }
 
 /* Google Places Autocomplete styling */
+.places-autocomplete-container {
+    width: 100%;
+    min-height: 40px;
+}
+.places-autocomplete-container gmp-place-autocomplete {
+    width: 100%;
+    font-family: inherit;
+}
 .pac-container {
     border-radius: 8px;
     border: 1px solid var(--border);
