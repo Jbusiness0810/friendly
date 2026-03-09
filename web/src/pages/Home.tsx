@@ -7,7 +7,9 @@ import { useNavigate } from "@solidjs/router";
 import { showToast } from "../lib/toast";
 
 const WaveIcon = () => (
-  <img src="/icon.png" alt="wave" width="26" height="26" style="border-radius:4px;flex-shrink:0" />
+  <svg viewBox="0 0 32 32" width="26" height="26" fill="white">
+    <path d="M9 16.5V8.5C9 7.67 9.67 7 10.5 7S12 7.67 12 8.5V15h1V5.5C13 4.67 13.67 4 14.5 4S16 4.67 16 5.5V15h1V6.5C17 5.67 17.67 5 18.5 5S20 5.67 20 6.5V15h1V9.5C21 8.67 21.67 8 22.5 8S24 8.67 24 9.5V21c0 4.42-3.58 8-8 8s-8-3.58-8-8v-1.5C8 18.12 8.67 17.5 9 16.5z" />
+  </svg>
 );
 
 const CheckIcon = () => (

@@ -285,7 +285,7 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding-right: 56px;
+    padding-right: 62px;
 }
 .discover-name {
     font-size: 20px;
@@ -326,10 +326,10 @@ body {
 /* ================================================================ */
 .wave-btn {
     position: absolute;
-    top: -24px;
+    top: -28px;
     right: 16px;
-    width: 52px;
-    height: 52px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
     background: var(--primary);
     border: 3px solid var(--card);
@@ -338,16 +338,11 @@ body {
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
     z-index: 2;
     padding: 0;
 }
 .wave-btn:active { transform: scale(0.9); }
-.wave-btn img {
-    width: 26px;
-    height: 26px;
-    border-radius: 4px;
-}
 .wave-btn-waved {
     background: var(--active-bg);
     box-shadow: none;
