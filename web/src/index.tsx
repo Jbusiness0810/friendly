@@ -1,4 +1,5 @@
 /* @refresh reload */
+console.log("[Friendly] Build v3 — 2026-03-08");
 import { render } from "solid-js/web";
 import { Router, Route } from "@solidjs/router";
 import { AuthProvider } from "./context/AuthContext";
