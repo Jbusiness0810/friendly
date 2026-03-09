@@ -26,12 +26,15 @@ const POLITICAL_OPTIONS = [
 ];
 
 const Profile: Component = () => {
-  const { profile, signOut, refreshProfile } = useAuth();
+  const { profile, signOut, refreshProfile, updateProfileField } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   const [editing, setEditing] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
   const [showAbout, setShowAbout] = createSignal(false);
+  const [uploadingAvatar, setUploadingAvatar] = createSignal(false);
+
+  let fileInputRef: HTMLInputElement | undefined;
 
   // Edit form state
   const [editName, setEditName] = createSignal("");
@@ -53,6 +56,63 @@ const Profile: Component = () => {
       .join("")
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const handleAvatarUpload = async (file: File) => {
+    const p = profile();
+    if (!p) return;
+
+    setUploadingAvatar(true);
+
+    try {
+      // Upload to Supabase Storage: avatars/{userId}/avatar.{ext}
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `${p.id}/avatar.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, contentType: file.type });
+
+      if (uploadError) {
+        showToast("Failed to upload photo");
+        setUploadingAvatar(false);
+        return;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(path);
+
+      // Add cache-buster so browser loads the new image
+      const publicUrl = urlData.publicUrl + "?t=" + Date.now();
+
+      // Update user record in database
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ avatar_url: publicUrl })
+        .eq("id", p.id);
+
+      if (updateError) {
+        showToast("Failed to update profile photo");
+      } else {
+        // Update in-memory profile so it reflects everywhere immediately
+        updateProfileField({ avatar_url: publicUrl });
+        showToast("Photo updated!");
+      }
+    } catch {
+      showToast("Something went wrong");
+    }
+
+    setUploadingAvatar(false);
+  };
+
+  const onFileSelected = (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) handleAvatarUpload(file);
+    // Reset so the same file can be selected again
+    input.value = "";
   };
 
   const startEditing = () => {
@@ -129,6 +189,35 @@ const Profile: Component = () => {
             <Show when={!editing()} fallback={
               /* ==================== EDIT MODE ==================== */
               <>
+                {/* Avatar upload */}
+                <div class="avatar-upload-section" onClick={() => fileInputRef?.click()}>
+                  <div class={`profile-avatar${p().avatar_url ? " avatar-photo" : ""}`}>
+                    <Show when={p().avatar_url} fallback={initials()}>
+                      <img src={p().avatar_url!} alt={p().name} />
+                    </Show>
+                  </div>
+                  <div class="avatar-upload-overlay">
+                    <Show when={uploadingAvatar()} fallback={
+                      <svg viewBox="0 0 24 24" width="24" height="24" fill="white">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        <path d="M20 15v-3h-2v3h-3v2h3v3h2v-3h3v-2h-3z" opacity="0.8"/>
+                      </svg>
+                    }>
+                      <div class="loading-spinner" style="width:24px;height:24px;border-width:2px" />
+                    </Show>
+                  </div>
+                  <span class="avatar-upload-label">
+                    {uploadingAvatar() ? "Uploading..." : "Change Photo"}
+                  </span>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    style="display:none"
+                    onChange={onFileSelected}
+                  />
+                </div>
+
                 <div class="edit-profile-section">
                   <label>Name</label>
                   <input
@@ -264,10 +353,31 @@ const Profile: Component = () => {
               {/* ==================== VIEW MODE ==================== */}
               <>
                 <div class="profile-header">
-                  <div class={`profile-avatar${p().avatar_url ? " avatar-photo" : ""}`}>
-                    <Show when={p().avatar_url} fallback={initials()}>
-                      <img src={p().avatar_url!} alt={p().name} />
-                    </Show>
+                  <div
+                    class="avatar-upload-section avatar-upload-compact"
+                    onClick={() => fileInputRef?.click()}
+                  >
+                    <div class={`profile-avatar${p().avatar_url ? " avatar-photo" : ""}`}>
+                      <Show when={p().avatar_url} fallback={initials()}>
+                        <img src={p().avatar_url!} alt={p().name} />
+                      </Show>
+                    </div>
+                    <div class="avatar-upload-overlay">
+                      <Show when={uploadingAvatar()} fallback={
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
+                          <path d="M3 4V1h2v3h3v2H5v3H3V6H0V4h3zm3 6V7h3V4h7l1.83 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V10h3zm7 9c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-3.2-5c0 1.77 1.43 3.2 3.2 3.2s3.2-1.43 3.2-3.2-1.43-3.2-3.2-3.2-3.2 1.43-3.2 3.2z" />
+                        </svg>
+                      }>
+                        <div class="loading-spinner" style="width:20px;height:20px;border-width:2px" />
+                      </Show>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      style="display:none"
+                      onChange={onFileSelected}
+                    />
                   </div>
                   <Show when={p().verified}>
                     <div class="profile-verified">

@@ -16,7 +16,6 @@
     --input-bg: #FFFFFF;
     --avatar-bg: #C7C7CC;
     --avatar-group-bg: #E5E5EA;
-    --wave-yellow: #FFC629;
 }
 
 /* Dark mode */
@@ -37,7 +36,6 @@
     --input-bg: #2c2c2e;
     --avatar-bg: #48484a;
     --avatar-group-bg: #3a3a3c;
-    --wave-yellow: #FFC629;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { height: 100%; }
@@ -242,7 +240,7 @@ body {
     object-fit: cover;
 }
 .discover-photo-gradient {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
 }
 .discover-photo-initials {
     font-size: 48px;
@@ -333,7 +331,7 @@ body {
     width: 52px;
     height: 52px;
     border-radius: 50%;
-    background: var(--wave-yellow);
+    background: var(--primary);
     border: 3px solid var(--card);
     display: flex;
     align-items: center;
@@ -1325,6 +1323,44 @@ body {
 }
 
 /* ================================================================ */
+/* AVATAR UPLOAD                                                     */
+/* ================================================================ */
+.avatar-upload-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 20px;
+    cursor: pointer;
+    position: relative;
+}
+.avatar-upload-section .profile-avatar {
+    position: relative;
+}
+.avatar-upload-overlay {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 32px;
+    height: 32px;
+    background: var(--primary);
+    border-radius: 50%;
+    border: 2.5px solid var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+.avatar-upload-compact .avatar-upload-overlay {
+    width: 28px;
+    height: 28px;
+}
+.avatar-upload-label {
+    font-size: 13px;
+    color: var(--primary);
+    font-weight: 600;
+}
+
 /* PROFILE EDIT                                                      */
 /* ================================================================ */
 .edit-profile-section {

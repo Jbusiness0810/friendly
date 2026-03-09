@@ -37,6 +37,7 @@ interface AuthContextValue {
   signUpWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateProfileField: (fields: Partial<UserProfile>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue>();
@@ -117,6 +118,10 @@ export const AuthProvider: ParentComponent = (props) => {
     if (s?.user) await fetchProfile(s.user.id);
   };
 
+  const updateProfileField = (fields: Partial<UserProfile>) => {
+    setProfile((prev) => (prev ? { ...prev, ...fields } : prev));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -129,6 +134,7 @@ export const AuthProvider: ParentComponent = (props) => {
         signUpWithEmail,
         signOut,
         refreshProfile,
+        updateProfileField,
       }}
     >
       {props.children}
