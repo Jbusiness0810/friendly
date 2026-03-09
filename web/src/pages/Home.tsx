@@ -13,7 +13,7 @@ const VerifiedBadge = () => (
 );
 
 const WaveIcon = () => (
-  <img src="/icon.png" alt="wave" width="24" height="24" style="border-radius:5px;flex-shrink:0" />
+  <img src="/icon.png" alt="wave" width="18" height="18" style="border-radius:4px;flex-shrink:0" />
 );
 
 const Home: Component = () => {
@@ -175,13 +175,8 @@ const Home: Component = () => {
                         </For>
                       </div>
                       <button
-                        class="wave-btn"
+                        class={`wave-btn${isMatched(person.id) ? " wave-btn-matched" : hasSentWave(person.id) ? " wave-btn-waved" : ""}`}
                         onClick={(e) => { e.stopPropagation(); handleWaveClick(person.id); }}
-                        style={
-                          isMatched(person.id) || hasSentWave(person.id)
-                            ? "color: var(--text-secondary)"
-                            : ""
-                        }
                       >
                         <Show when={!isMatched(person.id) && !hasSentWave(person.id)}>
                           <WaveIcon />

@@ -270,19 +270,27 @@ body {
 .wave-btn {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 6px 0;
-    background: none;
-    color: var(--primary);
+    gap: 6px;
+    padding: 8px 16px;
+    background: var(--primary);
+    color: #FFFFFF;
     border: none;
-    border-radius: 0;
-    font-size: 15px;
-    font-weight: 400;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
 }
-.wave-btn:active { opacity: 0.5; }
+.wave-btn:active { transform: scale(0.95); opacity: 0.9; }
+.wave-btn-waved {
+    background: var(--active-bg);
+    color: var(--text-secondary);
+}
+.wave-btn-matched {
+    background: #34C759;
+    color: #FFFFFF;
+}
 
 /* ================================================================ */
 /* EVENTS                                                           */
