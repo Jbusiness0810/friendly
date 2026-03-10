@@ -1,4 +1,5 @@
 import { createSignal, type Component, Show, For } from "solid-js";
+import { useNavigate } from "@solidjs/router";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { supabase } from "../lib/supabase";
@@ -28,6 +29,7 @@ const POLITICAL_OPTIONS = [
 const Profile: Component = () => {
   const { profile, signOut, refreshProfile, updateProfileField } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
 
   const [editing, setEditing] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
@@ -494,6 +496,11 @@ const Profile: Component = () => {
                     </div>
                   </div>
                   <div class="settings-item" onClick={startEditing}>Edit Profile <span class="chevron">›</span></div>
+                  <Show when={!p().verified}>
+                    <div class="settings-item" onClick={() => navigate("/verify")} style="color:var(--primary)">
+                      Verify Identity <span class="chevron">›</span>
+                    </div>
+                  </Show>
                   <div class="settings-item" onClick={() => setShowAbout(true)}>About Friendly <span class="chevron">›</span></div>
                   <div class="settings-item danger" onClick={signOut}>Sign Out</div>
                   <div class="settings-item danger" onClick={() => setShowDeleteConfirm(true)}>Delete Account</div>
