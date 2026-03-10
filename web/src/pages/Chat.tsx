@@ -20,6 +20,7 @@ interface Conversation {
   type: "direct" | "group";
   participants: string[];
   group_name?: string | null;
+  group_avatar?: string | null;
   created_at: string;
 }
 
@@ -92,6 +93,7 @@ const Chat: Component = () => {
   // Group member management
   const [showGroupMembers, setShowGroupMembers] = createSignal(false);
   const [showAddMember, setShowAddMember] = createSignal(false);
+  const [uploadingGroupPhoto, setUploadingGroupPhoto] = createSignal(false);
 
   let messagesEndRef!: HTMLDivElement;
   let channel: RealtimeChannel | null = null;
@@ -650,6 +652,67 @@ const Chat: Component = () => {
     showToast("Member added", "success");
   };
 
+  let groupPhotoInputRef: HTMLInputElement | undefined;
+
+  const handleGroupPhotoUpload = async (e: Event) => {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    const convo = activeConvo();
+    if (!file || !convo) return;
+
+    setUploadingGroupPhoto(true);
+
+    const ext = file.name.split(".").pop() ?? "jpg";
+    const path = `group-avatars/${convo.conversation.id}.${ext}`;
+
+    // Upload to chat-images bucket
+    const { error: uploadErr } = await supabase.storage
+      .from("chat-images")
+      .upload(path, file, { contentType: file.type, upsert: true });
+
+    if (uploadErr) {
+      showToast("Failed to upload photo");
+      setUploadingGroupPhoto(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from("chat-images")
+      .getPublicUrl(path);
+
+    const avatarUrl = urlData.publicUrl;
+
+    // Try to update conversation with group_avatar column
+    const { error: updateErr } = await supabase
+      .from("conversations")
+      .update({ group_avatar: avatarUrl })
+      .eq("id", convo.conversation.id);
+
+    if (updateErr) {
+      console.warn("Could not set group_avatar (run migration):", updateErr.message);
+      showToast("Photo uploaded but could not save (run migration)");
+    } else {
+      // Update local state
+      const updated = { ...convo };
+      updated.conversation = { ...convo.conversation, group_avatar: avatarUrl };
+      setActiveConvo(updated);
+
+      // Update in rows list too
+      setRows((prev) =>
+        prev.map((r) =>
+          r.conversation.id === convo.conversation.id
+            ? { ...r, conversation: { ...r.conversation, group_avatar: avatarUrl } }
+            : r
+        )
+      );
+
+      showToast("Group photo updated", "success");
+    }
+
+    setUploadingGroupPhoto(false);
+    if (groupPhotoInputRef) groupPhotoInputRef.value = "";
+  };
+
   const handleWithParam = async () => {
     const withUserId = searchParams.with;
     const id = myId();
@@ -824,11 +887,17 @@ const Chat: Component = () => {
                         </Show>
                       </div>
                     }>
-                      <div class="chat-avatar group-avatar-icon">
-                        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                          <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
-                        </svg>
-                      </div>
+                      <Show when={row.conversation.group_avatar} fallback={
+                        <div class="chat-avatar group-avatar-icon">
+                          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                            <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+                          </svg>
+                        </div>
+                      }>
+                        <div class="chat-avatar avatar-photo">
+                          <img src={row.conversation.group_avatar!} alt={getConvoDisplayName(row)} />
+                        </div>
+                      </Show>
                     </Show>
                     <div class="chat-body">
                       <div class="chat-name">{getConvoDisplayName(row)}</div>
@@ -894,11 +963,17 @@ const Chat: Component = () => {
                   class="convo-header-profile"
                   onClick={() => setShowGroupMembers(true)}
                 >
-                  <div class="convo-avatar group-avatar-icon">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                      <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
-                    </svg>
-                  </div>
+                  <Show when={convo().conversation.group_avatar} fallback={
+                    <div class="convo-avatar group-avatar-icon">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+                      </svg>
+                    </div>
+                  }>
+                    <div class="convo-avatar avatar-photo">
+                      <img src={convo().conversation.group_avatar!} alt="Group" />
+                    </div>
+                  </Show>
                   <div>
                     <span class="convo-name">{convo().conversation.group_name ?? "Group Chat"}</span>
                     <span class="convo-group-count">{convo().conversation.participants.length} members</span>
@@ -1141,12 +1216,58 @@ const Chat: Component = () => {
         </div>
       </Show>
 
+      {/* Hidden file input for group photo upload */}
+      <input
+        type="file"
+        accept="image/*"
+        ref={groupPhotoInputRef}
+        style="display:none"
+        onChange={handleGroupPhotoUpload}
+      />
+
       {/* Group Members Sheet */}
       <Show when={showGroupMembers()}>
         <div class="modal-overlay" onClick={() => setShowGroupMembers(false)}>
           <div class="bottom-sheet" onClick={(e) => e.stopPropagation()}>
-            <h2>{activeConvo()?.conversation.group_name ?? "Group"}</h2>
-            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">
+            {/* Group photo upload area */}
+            <div class="group-photo-upload" onClick={() => groupPhotoInputRef?.click()}>
+              <Show when={activeConvo()?.conversation.group_avatar} fallback={
+                <div class="group-photo-placeholder">
+                  <Show when={!uploadingGroupPhoto()} fallback={
+                    <div class="loading-spinner" style="width:24px;height:24px" />
+                  }>
+                    <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
+                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                    </svg>
+                    <div class="group-photo-camera">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="white">
+                        <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z" />
+                        <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" />
+                      </svg>
+                    </div>
+                  </Show>
+                </div>
+              }>
+                <div class="group-photo-img">
+                  <Show when={!uploadingGroupPhoto()} fallback={
+                    <div class="group-photo-uploading-overlay">
+                      <div class="loading-spinner" style="width:24px;height:24px" />
+                    </div>
+                  }>
+                    <img src={activeConvo()!.conversation.group_avatar!} alt="Group" />
+                    <div class="group-photo-camera">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="white">
+                        <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z" />
+                        <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" />
+                      </svg>
+                    </div>
+                  </Show>
+                </div>
+              </Show>
+            </div>
+
+            <h2 style="text-align:center;margin-top:8px">{activeConvo()?.conversation.group_name ?? "Group"}</h2>
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;text-align:center">
               {activeConvo()?.conversation.participants.length} members
             </p>
 
