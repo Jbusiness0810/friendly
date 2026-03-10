@@ -153,46 +153,60 @@ const Events: Component = () => {
   };
 
   // ---- Event Group Chat helpers ----
+  // Uses event_conversations linking table. Run scripts/add-event-conversations.sql first.
 
-  /** Find an existing group chat for an event by matching group_name to event title */
-  const findEventGroupChat = async (eventTitle: string): Promise<string | null> => {
-    const { data } = await supabase
-      .from("conversations")
-      .select("id")
-      .eq("type", "group")
-      .eq("group_name", eventTitle)
-      .limit(1)
+  /** Find an existing group chat for an event via the linking table */
+  const findEventGroupChat = async (eventId: string): Promise<string | null> => {
+    const { data, error } = await supabase
+      .from("event_conversations")
+      .select("conversation_id")
+      .eq("event_id", eventId)
       .maybeSingle();
-    return data?.id ?? null;
+    if (error) return null; // Table may not exist yet
+    return data?.conversation_id ?? null;
   };
 
-  /** Create a group chat for an event, returns conversation ID */
-  const createEventGroupChat = async (eventTitle: string, creatorId: string): Promise<string | null> => {
+  /** Create a group conversation (tries with group_name, falls back without) */
+  const createConversation = async (eventTitle: string, creatorId: string): Promise<string | null> => {
+    // Try with group_name for nice display in Chat
     const { data, error } = await supabase
       .from("conversations")
-      .insert({
-        type: "group",
-        participants: [creatorId],
-        group_name: eventTitle,
-      })
+      .insert({ type: "group", participants: [creatorId], group_name: eventTitle })
       .select("id")
       .single();
 
-    if (error) {
-      console.error("Failed to create event group chat:", error.message);
+    if (!error && data) return data.id;
+
+    // Fallback: create without group_name (column may not exist)
+    const { data: data2, error: error2 } = await supabase
+      .from("conversations")
+      .insert({ type: "group", participants: [creatorId] })
+      .select("id")
+      .single();
+
+    if (error2) {
+      console.error("Failed to create group chat:", error2.message);
       return null;
     }
-    return data?.id ?? null;
+    return data2?.id ?? null;
   };
 
-  /** Find or create the group chat for an event, then ensure userId is a participant */
-  const ensureEventGroupChat = async (eventTitle: string, userId: string): Promise<string | null> => {
-    // Try to find existing
-    let convoId = await findEventGroupChat(eventTitle);
+  /** Find or create the group chat for an event, ensure userId is a participant */
+  const ensureEventGroupChat = async (eventId: string, eventTitle: string, userId: string): Promise<string | null> => {
+    let convoId = await findEventGroupChat(eventId);
 
     if (!convoId) {
-      // Create new
-      convoId = await createEventGroupChat(eventTitle, userId);
+      // Create a new conversation
+      convoId = await createConversation(eventTitle, userId);
+      if (!convoId) return null;
+
+      // Link it in the event_conversations table
+      const { error: linkErr } = await supabase
+        .from("event_conversations")
+        .insert({ event_id: eventId, conversation_id: convoId });
+      if (linkErr) {
+        console.warn("Could not link event to chat (run scripts/add-event-conversations.sql):", linkErr.message);
+      }
     } else {
       // Add user to participants if not already in
       const { data: convo } = await supabase
@@ -213,8 +227,8 @@ const Events: Component = () => {
   };
 
   /** Remove a user from an event's group chat */
-  const removeFromEventGroupChat = async (eventTitle: string, userId: string) => {
-    const convoId = await findEventGroupChat(eventTitle);
+  const removeFromEventGroupChat = async (eventId: string, userId: string) => {
+    const convoId = await findEventGroupChat(eventId);
     if (!convoId) return;
 
     const { data: convo } = await supabase
@@ -270,7 +284,7 @@ const Events: Component = () => {
     }
 
     // Create/join the event group chat
-    await ensureEventGroupChat(suggestion.title, myId);
+    await ensureEventGroupChat(eventId, suggestion.title, myId);
 
     // Remove from suggestions
     setSuggested((prev) => prev.filter((s) => s.id !== suggestion.id));
@@ -321,9 +335,9 @@ const Events: Component = () => {
     const ev = events().find((e) => e.id === eventId);
     if (ev && !error) {
       if (isGoing) {
-        removeFromEventGroupChat(ev.title, myId).catch(() => {});
+        removeFromEventGroupChat(ev.id, myId).catch(() => {});
       } else {
-        ensureEventGroupChat(ev.title, myId).catch(() => {});
+        ensureEventGroupChat(ev.id, ev.title, myId).catch(() => {});
       }
     }
 
@@ -355,7 +369,7 @@ const Events: Component = () => {
     setEventConvoId(null);
 
     // Look up the event's group chat
-    findEventGroupChat(event.title).then((id) => setEventConvoId(id));
+    findEventGroupChat(event.id).then((id) => setEventConvoId(id));
 
     // Fetch attendees
     supabase
@@ -551,7 +565,7 @@ const Events: Component = () => {
 
     // Create group chat for this event
     if (newEvent) {
-      await ensureEventGroupChat((newEvent as any).title, myId);
+      await ensureEventGroupChat((newEvent as any).id, (newEvent as any).title, myId);
     }
 
     setSubmitting(false);
