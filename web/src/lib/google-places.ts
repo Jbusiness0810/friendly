@@ -62,6 +62,34 @@ export async function getPlacePhoto(
   return null;
 }
 
+/** Search for a real venue by text query, return its name and address */
+export async function searchNearbyVenue(
+  query: string,
+): Promise<{ name: string; address: string } | null> {
+  if (!isGoogleMapsLoaded() || !query.trim()) return null;
+
+  try {
+    const { Place } = google.maps.places;
+    const request = {
+      textQuery: query,
+      fields: ["displayName", "formattedAddress"],
+      maxResultCount: 1,
+    };
+    // @ts-ignore — searchByText is part of the new Places API
+    const { places } = await Place.searchByText(request);
+
+    if (places?.length) {
+      return {
+        name: places[0].displayName ?? "",
+        address: places[0].formattedAddress ?? "",
+      };
+    }
+  } catch (e) {
+    console.warn("[Friendly] Failed to search nearby venue:", e);
+  }
+  return null;
+}
+
 /** Search for a place by text query and return its photo URL */
 export async function searchPlacePhoto(
   query: string,

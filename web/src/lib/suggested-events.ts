@@ -1,4 +1,5 @@
 import type { UserProfile } from "../context/AuthContext";
+import { searchNearbyVenue } from "./google-places";
 
 export interface SuggestedEvent {
   id: string;
@@ -18,7 +19,8 @@ interface EventTemplate {
   interests: string[];
   hangouts: string[];
   intent: string[];
-  locationDesc: string;
+  searchQuery: string; // Google Places search query (e.g. "coffee shops")
+  fallbackLocation: string; // Shown if Google Places unavailable
   timeSlot: "morning" | "afternoon" | "evening";
   preferredDay: "weekday" | "weekend" | "friday" | "any";
   isFree: boolean;
@@ -33,7 +35,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Lifting", "Running"],
     hangouts: ["Gym"],
     intent: ["Gym partner"],
-    locationDesc: "Meet at the park pavilion",
+    searchQuery: "public parks with fitness equipment",
+    fallbackLocation: "Local park",
     timeSlot: "morning",
     preferredDay: "weekend",
     isFree: true,
@@ -45,7 +48,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Running"],
     hangouts: ["Trail", "Coffee"],
     intent: ["Gym partner"],
-    locationDesc: "Meet at the park entrance",
+    searchQuery: "running trails and paths",
+    fallbackLocation: "Local running trail",
     timeSlot: "morning",
     preferredDay: "weekend",
     isFree: true,
@@ -57,7 +61,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Basketball"],
     hangouts: ["Sports"],
     intent: ["Pickup sports"],
-    locationDesc: "Outdoor basketball courts at the park",
+    searchQuery: "parks with basketball courts",
+    fallbackLocation: "Local basketball courts",
     timeSlot: "afternoon",
     preferredDay: "weekend",
     isFree: true,
@@ -69,7 +74,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Hiking", "Outdoors"],
     hangouts: ["Trail"],
     intent: ["Weekend plans"],
-    locationDesc: "Meet at the trailhead parking lot",
+    searchQuery: "hiking trails",
+    fallbackLocation: "Local trailhead",
     timeSlot: "evening",
     preferredDay: "weekend",
     isFree: true,
@@ -81,7 +87,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Hiking", "Outdoors"],
     hangouts: ["Trail"],
     intent: [],
-    locationDesc: "Local trail",
+    searchQuery: "nature trails and walking paths",
+    fallbackLocation: "Local trail",
     timeSlot: "morning",
     preferredDay: "weekend",
     isFree: true,
@@ -93,7 +100,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Fishing"],
     hangouts: [],
     intent: ["Weekend plans"],
-    locationDesc: "Meet at the lake dock",
+    searchQuery: "fishing spots lakes and piers",
+    fallbackLocation: "Local fishing spot",
     timeSlot: "morning",
     preferredDay: "weekend",
     isFree: true,
@@ -105,7 +113,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Golf"],
     hangouts: [],
     intent: [],
-    locationDesc: "Local driving range",
+    searchQuery: "driving range golf",
+    fallbackLocation: "Local driving range",
     timeSlot: "afternoon",
     preferredDay: "weekend",
     isFree: false,
@@ -117,7 +126,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Golf"],
     hangouts: [],
     intent: ["Weekend plans"],
-    locationDesc: "Local golf course",
+    searchQuery: "golf courses",
+    fallbackLocation: "Local golf course",
     timeSlot: "morning",
     preferredDay: "weekend",
     isFree: false,
@@ -131,7 +141,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Coffee"],
     hangouts: ["Coffee"],
     intent: [],
-    locationDesc: "Local coffee shop",
+    searchQuery: "coffee shops",
+    fallbackLocation: "Local coffee shop",
     timeSlot: "morning",
     preferredDay: "weekend",
     isFree: false,
@@ -143,7 +154,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Coffee"],
     hangouts: ["Coffee"],
     intent: ["Weekend plans"],
-    locationDesc: "Meet at first cafe downtown",
+    searchQuery: "popular cafes",
+    fallbackLocation: "Downtown cafe district",
     timeSlot: "afternoon",
     preferredDay: "weekend",
     isFree: false,
@@ -151,11 +163,12 @@ const TEMPLATES: EventTemplate[] = [
   {
     id: "happy-hour",
     title: "Wednesday Happy Hour",
-    description: "Mid-week wind-down with new faces. $5 apps, half-price drinks, and zero awkwardness — everyone's here to meet people.",
+    description: "Mid-week wind-down with new faces. Appetizers, drinks, and zero awkwardness — everyone's here to meet people.",
     interests: [],
     hangouts: ["Bar"],
     intent: ["Grab a drink"],
-    locationDesc: "Local bar & grill",
+    searchQuery: "bars with happy hour specials",
+    fallbackLocation: "Local bar & grill",
     timeSlot: "evening",
     preferredDay: "weekday",
     isFree: false,
@@ -167,7 +180,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: [],
     hangouts: ["Bar"],
     intent: ["Grab a drink"],
-    locationDesc: "Local pub with trivia night",
+    searchQuery: "bars with trivia night",
+    fallbackLocation: "Local pub",
     timeSlot: "evening",
     preferredDay: "weekday",
     isFree: false,
@@ -179,7 +193,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: [],
     hangouts: ["Bar"],
     intent: ["Grab a drink", "Weekend plans"],
-    locationDesc: "Popular local spot",
+    searchQuery: "popular bars and lounges",
+    fallbackLocation: "Popular local bar",
     timeSlot: "evening",
     preferredDay: "friday",
     isFree: false,
@@ -191,7 +206,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Cooking"],
     hangouts: ["BBQ"],
     intent: ["Weekend plans"],
-    locationDesc: "Park grill area / pavilion",
+    searchQuery: "parks with barbecue grills and picnic areas",
+    fallbackLocation: "Local park pavilion",
     timeSlot: "afternoon",
     preferredDay: "weekend",
     isFree: true,
@@ -203,7 +219,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Cooking"],
     hangouts: ["BBQ"],
     intent: [],
-    locationDesc: "Community center / host's place",
+    searchQuery: "community centers with event space",
+    fallbackLocation: "Community center",
     timeSlot: "evening",
     preferredDay: "weekend",
     isFree: true,
@@ -215,7 +232,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Hiking", "Outdoors"],
     hangouts: ["Trail", "Bar"],
     intent: ["Grab a drink", "Weekend plans"],
-    locationDesc: "Meet at the trailhead",
+    searchQuery: "hiking trails near breweries",
+    fallbackLocation: "Local trailhead",
     timeSlot: "morning",
     preferredDay: "weekend",
     isFree: false,
@@ -229,7 +247,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Gaming"],
     hangouts: ["Game night"],
     intent: [],
-    locationDesc: "Local board game cafe or host's place",
+    searchQuery: "board game cafes",
+    fallbackLocation: "Local board game cafe",
     timeSlot: "evening",
     preferredDay: "friday",
     isFree: true,
@@ -241,7 +260,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Gaming"],
     hangouts: ["Game night"],
     intent: [],
-    locationDesc: "Host's place (address shared in chat)",
+    searchQuery: "gaming lounges and arcades",
+    fallbackLocation: "Local gaming lounge",
     timeSlot: "evening",
     preferredDay: "weekend",
     isFree: true,
@@ -253,7 +273,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Music"],
     hangouts: [],
     intent: [],
-    locationDesc: "Local venue or cafe with open mic",
+    searchQuery: "venues with open mic nights",
+    fallbackLocation: "Local open mic venue",
     timeSlot: "evening",
     preferredDay: "weekday",
     isFree: true,
@@ -265,7 +286,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Music"],
     hangouts: ["Bar"],
     intent: ["Grab a drink"],
-    locationDesc: "Local music venue",
+    searchQuery: "live music venues",
+    fallbackLocation: "Local music venue",
     timeSlot: "evening",
     preferredDay: "friday",
     isFree: false,
@@ -277,7 +299,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: [],
     hangouts: ["Sports"],
     intent: ["Watch the game"],
-    locationDesc: "Local sports bar",
+    searchQuery: "sports bars with big screens",
+    fallbackLocation: "Local sports bar",
     timeSlot: "afternoon",
     preferredDay: "weekend",
     isFree: true,
@@ -289,7 +312,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: [],
     hangouts: ["Sports", "Bar"],
     intent: ["Watch the game", "Grab a drink"],
-    locationDesc: "Neighborhood sports bar",
+    searchQuery: "sports bars",
+    fallbackLocation: "Neighborhood sports bar",
     timeSlot: "evening",
     preferredDay: "weekday",
     isFree: false,
@@ -303,7 +327,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Cars"],
     hangouts: ["Coffee"],
     intent: [],
-    locationDesc: "Shopping center lot (east side)",
+    searchQuery: "cars and coffee meetup locations",
+    fallbackLocation: "Local parking lot meetup",
     timeSlot: "morning",
     preferredDay: "weekend",
     isFree: true,
@@ -315,7 +340,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Cars"],
     hangouts: [],
     intent: ["Weekend plans"],
-    locationDesc: "Meet at gas station off the highway",
+    searchQuery: "scenic drive starting points",
+    fallbackLocation: "Local meetup point",
     timeSlot: "afternoon",
     preferredDay: "weekend",
     isFree: true,
@@ -329,7 +355,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: [],
     hangouts: ["Coffee"],
     intent: ["Networking"],
-    locationDesc: "Local coworking space or cafe",
+    searchQuery: "coworking spaces",
+    fallbackLocation: "Local coworking space",
     timeSlot: "afternoon",
     preferredDay: "weekday",
     isFree: false,
@@ -341,7 +368,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: [],
     hangouts: [],
     intent: ["Networking"],
-    locationDesc: "Local restaurant downtown",
+    searchQuery: "restaurants popular for lunch",
+    fallbackLocation: "Local restaurant",
     timeSlot: "afternoon",
     preferredDay: "weekday",
     isFree: false,
@@ -355,7 +383,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: [],
     hangouts: [],
     intent: ["Weekend plans"],
-    locationDesc: "Meet at the park",
+    searchQuery: "popular parks",
+    fallbackLocation: "Local park",
     timeSlot: "afternoon",
     preferredDay: "weekend",
     isFree: true,
@@ -367,7 +396,8 @@ const TEMPLATES: EventTemplate[] = [
     interests: ["Coffee", "Running"],
     hangouts: ["Coffee", "Trail"],
     intent: [],
-    locationDesc: "Meet at the coffee shop near the trail",
+    searchQuery: "coffee shops near walking trails",
+    fallbackLocation: "Local coffee shop",
     timeSlot: "morning",
     preferredDay: "weekend",
     isFree: false,
@@ -430,9 +460,10 @@ function getNextDate(now: Date, baseOffset: number, preferred: "weekday" | "week
 
 /**
  * Generate personalized event suggestions for a user based on their profile.
- * Returns up to 6 relevant events with realistic dates.
+ * Uses Google Places API to find real venues near the user's location.
+ * Returns up to 6 relevant events with realistic dates and real venue names.
  */
-export function getSuggestedEvents(user: UserProfile): SuggestedEvent[] {
+export async function getSuggestedEvents(user: UserProfile): Promise<SuggestedEvent[]> {
   const scored = TEMPLATES
     .map((t) => ({ template: t, score: scoreTemplate(user, t) }))
     .filter((s) => s.score > 0)
@@ -442,6 +473,15 @@ export function getSuggestedEvents(user: UserProfile): SuggestedEvent[] {
   if (top.length === 0) return [];
 
   const now = new Date();
+
+  // Build location suffix from user profile for geographic relevance
+  const locationSuffix = user.location ? ` in ${user.location}` : "";
+
+  // Resolve all venue lookups in parallel
+  const venuePromises = top.map((item) =>
+    searchNearbyVenue(item.template.searchQuery + locationSuffix)
+  );
+  const venues = await Promise.all(venuePromises);
 
   return top.map((item, i) => {
     const { template, score } = item;
@@ -456,11 +496,17 @@ export function getSuggestedEvents(user: UserProfile): SuggestedEvent[] {
     const monthName = MONTHS[eventDate.getMonth()];
     const dayNum = eventDate.getDate();
 
+    // Use real venue from Google Places, or fallback
+    const venue = venues[i];
+    const location = venue
+      ? `${venue.name} — ${venue.address}`
+      : template.fallbackLocation;
+
     return {
       id: template.id,
       title: template.title,
       description: template.description,
-      location: template.locationDesc,
+      location,
       date: eventDate.toISOString(),
       timeLabel: `${dayName}, ${monthName} ${dayNum} · ${time.label}`,
       isFree: template.isFree,

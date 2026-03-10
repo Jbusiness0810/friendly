@@ -72,6 +72,7 @@ const Events: Component = () => {
   const [myRsvps, setMyRsvps] = createSignal<Set<string>>(new Set());
   const [loading, setLoading] = createSignal(true);
   const [suggested, setSuggested] = createSignal<SuggestedEvent[]>([]);
+  const [loadingSuggested, setLoadingSuggested] = createSignal(false);
   const [joiningSuggested, setJoiningSuggested] = createSignal<string | null>(null);
   const [showModal, setShowModal] = createSignal(false);
   const [submitting, setSubmitting] = createSignal(false);
@@ -103,13 +104,18 @@ const Events: Component = () => {
   let photoInputRef: HTMLInputElement | undefined;
 
   onMount(async () => {
-    loadGoogleMaps().catch(() => {});
+    // Load Google Maps first so venue search works for suggestions
+    await loadGoogleMaps().catch(() => {});
     await loadAll();
 
-    // Generate suggested events based on user profile
+    // Generate suggested events based on user profile (async — uses Google Places)
     const p = profile();
     if (p) {
-      setSuggested(getSuggestedEvents(p));
+      setLoadingSuggested(true);
+      getSuggestedEvents(p)
+        .then((events) => setSuggested(events))
+        .catch((e) => console.warn("[Friendly] Failed to load suggestions:", e))
+        .finally(() => setLoadingSuggested(false));
     }
   });
 
@@ -119,12 +125,11 @@ const Events: Component = () => {
     // Try RPC for visibility-filtered events, fall back to direct query
     let eventIds: string[] | null = null;
     if (myId) {
-      try {
-        const { data: visible } = await supabase.rpc("get_visible_events", { my_id: myId });
-        if (visible) eventIds = visible.map((e: any) => e.id);
-      } catch {
-        // RPC not available yet — fetch all
+      const { data: visible, error: rpcErr } = await supabase.rpc("get_visible_events", { my_id: myId });
+      if (!rpcErr && visible) {
+        eventIds = visible.map((e: any) => e.id);
       }
+      // Silently ignore RPC errors (function may not exist if migration not run)
     }
 
     let query = supabase
@@ -202,13 +207,21 @@ const Events: Component = () => {
     }
 
     // Create a group chat for this event so attendees can coordinate
+    // Try with group_name first; if column doesn't exist (migration not run), retry without
     const { error: chatError } = await supabase.from("conversations").insert({
       type: "group",
       participants: [myId],
       group_name: suggestion.title,
     });
     if (chatError) {
-      console.error("Failed to create event group chat:", chatError);
+      console.warn("Group chat with group_name failed, retrying without:", chatError.message);
+      const { error: chatError2 } = await supabase.from("conversations").insert({
+        type: "group",
+        participants: [myId],
+      });
+      if (chatError2) {
+        console.error("Failed to create event group chat:", chatError2);
+      }
     }
 
     // Remove from suggestions
@@ -515,6 +528,16 @@ const Events: Component = () => {
         </div>
       }>
         {/* Suggested for You */}
+        <Show when={loadingSuggested()}>
+          <div class="suggested-section">
+            <div class="suggested-header">
+              <span>Suggested for You</span>
+            </div>
+            <div style="display:flex;justify-content:center;padding:16px 0">
+              <div class="loading-spinner" />
+            </div>
+          </div>
+        </Show>
         <Show when={suggested().length > 0}>
           <div class="suggested-section">
             <div class="suggested-header">
