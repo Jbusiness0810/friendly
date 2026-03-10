@@ -94,6 +94,7 @@ const Chat: Component = () => {
   const [showGroupMembers, setShowGroupMembers] = createSignal(false);
   const [showAddMember, setShowAddMember] = createSignal(false);
   const [uploadingGroupPhoto, setUploadingGroupPhoto] = createSignal(false);
+  const [myProfile, setMyProfile] = createSignal<UserProfile | null>(null);
 
   let messagesEndRef!: HTMLDivElement;
   let channel: RealtimeChannel | null = null;
@@ -249,10 +250,13 @@ const Chat: Component = () => {
       ),
     ];
 
-    const { data: profiles } = await supabase
-      .from("users")
-      .select("id, name, avatar_url, verified")
-      .in("id", otherIds);
+    // Fetch other users' profiles + own profile in parallel
+    const [{ data: profiles }, { data: meProfData }] = await Promise.all([
+      supabase.from("users").select("id, name, avatar_url, verified").in("id", otherIds),
+      supabase.from("users").select("id, name, avatar_url, verified").eq("id", id).maybeSingle(),
+    ]);
+
+    if (meProfData) setMyProfile(meProfData as UserProfile);
 
     const profileMap = new Map<string, UserProfile>();
     (profiles ?? []).forEach((p: UserProfile) => profileMap.set(p.id, p));
@@ -1273,9 +1277,14 @@ const Chat: Component = () => {
 
             <div class="friend-picker-list">
               {/* Show yourself */}
-              <div class="friend-picker-item" style="opacity:0.6">
-                <div class="friend-picker-avatar">You</div>
-                <span class="friend-picker-name">You</span>
+              <div class="friend-picker-item" style="opacity:0.7">
+                <div class={`friend-picker-avatar${myProfile()?.avatar_url ? " avatar-photo" : ""}`}>
+                  <Show when={myProfile()?.avatar_url} fallback={getInitials(myProfile()?.name ?? "You")}>
+                    <img src={myProfile()!.avatar_url!} alt="You" />
+                  </Show>
+                </div>
+                <span class="friend-picker-name">{myProfile()?.name ?? "You"}</span>
+                <span style="margin-left:auto;font-size:12px;color:var(--text-secondary)">You</span>
               </div>
 
               {/* Show other members */}
