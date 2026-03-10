@@ -1,50 +1,23 @@
-import { onMount } from "solid-js";
+import { createEffect } from "solid-js";
 import { useNavigate } from "@solidjs/router";
+import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 
 /**
- * Handles OAuth redirects (PKCE code exchange).
- * Supabase redirects here with ?code=... after provider sign-in.
+ * Handles OAuth redirects.
+ * Supabase's detectSessionInUrl automatically exchanges the ?code= param
+ * for a session. This component just waits for that to complete, then
+ * routes the user based on whether they have a profile.
  */
 const AuthCallback = () => {
   const navigate = useNavigate();
+  const { session, loading } = useAuth();
 
-  onMount(async () => {
-    // Check query params (PKCE flow) and hash fragment (implicit flow / Apple)
-    const params = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const code = params.get("code");
-    const accessToken = hashParams.get("access_token");
-    const refreshToken = hashParams.get("refresh_token");
+  createEffect(async () => {
+    if (loading()) return;
 
-    console.log("[Auth] Callback URL:", window.location.href);
-    console.log("[Auth] code:", code, "access_token:", !!accessToken);
-
-    if (code) {
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (error) {
-        console.error("[Auth] Code exchange failed:", error.message);
-        navigate("/landing", { replace: true });
-        return;
-      }
-    } else if (accessToken) {
-      const { error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken ?? "",
-      });
-      if (error) {
-        console.error("[Auth] Token session failed:", error.message);
-        navigate("/landing", { replace: true });
-        return;
-      }
-    }
-
-    // Session is now set — check if user has a profile
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
+    const s = session();
+    if (!s) {
       console.error("[Auth] No session after callback — redirecting to landing");
       navigate("/landing", { replace: true });
       return;
@@ -53,7 +26,7 @@ const AuthCallback = () => {
     const { data: profile } = await supabase
       .from("users")
       .select("id")
-      .eq("id", session.user.id)
+      .eq("id", s.user.id)
       .maybeSingle();
 
     navigate(profile ? "/" : "/onboarding", { replace: true });
