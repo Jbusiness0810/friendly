@@ -82,6 +82,7 @@ const Events: Component = () => {
   const [detailPhoto, setDetailPhoto] = createSignal<string | null>(null);
   const [loadingPhoto, setLoadingPhoto] = createSignal(false);
   const [attendees, setAttendees] = createSignal<AttendeeProfile[]>([]);
+  const [eventConvoId, setEventConvoId] = createSignal<string | null>(null);
 
   // Form fields
   const [title, setTitle] = createSignal("");
@@ -151,6 +152,86 @@ const Events: Component = () => {
     setLoading(false);
   };
 
+  // ---- Event Group Chat helpers ----
+
+  /** Find an existing group chat for an event by matching group_name to event title */
+  const findEventGroupChat = async (eventTitle: string): Promise<string | null> => {
+    const { data } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("type", "group")
+      .eq("group_name", eventTitle)
+      .limit(1)
+      .maybeSingle();
+    return data?.id ?? null;
+  };
+
+  /** Create a group chat for an event, returns conversation ID */
+  const createEventGroupChat = async (eventTitle: string, creatorId: string): Promise<string | null> => {
+    const { data, error } = await supabase
+      .from("conversations")
+      .insert({
+        type: "group",
+        participants: [creatorId],
+        group_name: eventTitle,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("Failed to create event group chat:", error.message);
+      return null;
+    }
+    return data?.id ?? null;
+  };
+
+  /** Find or create the group chat for an event, then ensure userId is a participant */
+  const ensureEventGroupChat = async (eventTitle: string, userId: string): Promise<string | null> => {
+    // Try to find existing
+    let convoId = await findEventGroupChat(eventTitle);
+
+    if (!convoId) {
+      // Create new
+      convoId = await createEventGroupChat(eventTitle, userId);
+    } else {
+      // Add user to participants if not already in
+      const { data: convo } = await supabase
+        .from("conversations")
+        .select("participants")
+        .eq("id", convoId)
+        .single();
+
+      if (convo && !convo.participants.includes(userId)) {
+        await supabase
+          .from("conversations")
+          .update({ participants: [...convo.participants, userId] })
+          .eq("id", convoId);
+      }
+    }
+
+    return convoId;
+  };
+
+  /** Remove a user from an event's group chat */
+  const removeFromEventGroupChat = async (eventTitle: string, userId: string) => {
+    const convoId = await findEventGroupChat(eventTitle);
+    if (!convoId) return;
+
+    const { data: convo } = await supabase
+      .from("conversations")
+      .select("participants")
+      .eq("id", convoId)
+      .single();
+
+    if (convo) {
+      const updated = convo.participants.filter((p: string) => p !== userId);
+      await supabase
+        .from("conversations")
+        .update({ participants: updated })
+        .eq("id", convoId);
+    }
+  };
+
   const joinSuggestedEvent = async (suggestion: SuggestedEvent) => {
     const myId = user()?.id;
     if (!myId) return;
@@ -188,39 +269,8 @@ const Events: Component = () => {
       setMyRsvps((prev) => new Set(prev).add(eventId));
     }
 
-    // Create a group chat for this event so attendees can coordinate
-    // Try with group_name first; if column doesn't exist (migration not run), retry without
-    const { data: chatData, error: chatError } = await supabase
-      .from("conversations")
-      .insert({
-        type: "group",
-        participants: [myId],
-        group_name: suggestion.title,
-      })
-      .select()
-      .single();
-
-    if (chatError) {
-      console.warn("Group chat with group_name failed:", chatError.message, chatError.code, chatError.details);
-      // Retry without group_name in case column doesn't exist
-      const { data: chatData2, error: chatError2 } = await supabase
-        .from("conversations")
-        .insert({
-          type: "group",
-          participants: [myId],
-        })
-        .select()
-        .single();
-
-      if (chatError2) {
-        console.error("Failed to create event group chat:", chatError2.message, chatError2.code, chatError2.details);
-        showToast(`Group chat failed: ${chatError2.message}`);
-      } else {
-        console.log("Group chat created (without name):", chatData2);
-      }
-    } else {
-      console.log("Group chat created:", chatData);
-    }
+    // Create/join the event group chat
+    await ensureEventGroupChat(suggestion.title, myId);
 
     // Remove from suggestions
     setSuggested((prev) => prev.filter((s) => s.id !== suggestion.id));
@@ -267,6 +317,16 @@ const Events: Component = () => {
         .insert({ event_id: eventId, user_id: myId }));
     }
 
+    // Sync group chat membership in background
+    const ev = events().find((e) => e.id === eventId);
+    if (ev && !error) {
+      if (isGoing) {
+        removeFromEventGroupChat(ev.title, myId).catch(() => {});
+      } else {
+        ensureEventGroupChat(ev.title, myId).catch(() => {});
+      }
+    }
+
     if (error) {
       setMyRsvps((prev) => {
         const next = new Set(prev);
@@ -292,6 +352,10 @@ const Events: Component = () => {
     setDetailPhoto(null);
     setLoadingPhoto(true);
     setAttendees([]);
+    setEventConvoId(null);
+
+    // Look up the event's group chat
+    findEventGroupChat(event.title).then((id) => setEventConvoId(id));
 
     // Fetch attendees
     supabase
@@ -483,6 +547,11 @@ const Events: Component = () => {
         user_id: uid,
       }));
       await supabase.from("event_invites").insert(inviteRows);
+    }
+
+    // Create group chat for this event
+    if (newEvent) {
+      await ensureEventGroupChat((newEvent as any).title, myId);
     }
 
     setSubmitting(false);
@@ -752,6 +821,23 @@ const Events: Component = () => {
                         </For>
                       </div>
                     </div>
+                  </Show>
+
+                  {/* Group Chat button */}
+                  <Show when={eventConvoId()}>
+                    <button
+                      class="event-group-chat-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        closeDetail();
+                        navigate(`/chat?convo=${eventConvoId()}`);
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
+                      </svg>
+                      Group Chat
+                    </button>
                   </Show>
 
                   <Show when={ev().description}>

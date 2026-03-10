@@ -698,9 +698,56 @@ const Chat: Component = () => {
     await openConversation(row);
   };
 
+  const handleConvoParam = async () => {
+    const convoId = searchParams.convo;
+    if (!convoId) return;
+
+    // Wait for conversations to load, then find and open this conversation
+    const row = rows().find((r) => r.conversation.id === convoId);
+    if (row) {
+      openConversation(row);
+    } else {
+      // Conversation might not be in the list yet — fetch it directly
+      const { data: convo } = await supabase
+        .from("conversations")
+        .select("*")
+        .eq("id", convoId)
+        .maybeSingle();
+
+      if (convo) {
+        const id = myId();
+        const otherIds = (convo as Conversation).participants.filter((p: string) => p !== id);
+        const { data: profiles } = await supabase
+          .from("users")
+          .select("id, name, avatar_url, verified")
+          .in("id", otherIds.length > 0 ? otherIds : [id]);
+
+        const profileMap = new Map<string, UserProfile>();
+        (profiles ?? []).forEach((p: UserProfile) => profileMap.set(p.id, p));
+
+        const groupProfiles = new Map<string, UserProfile>();
+        otherIds.forEach((pid: string) => {
+          const prof = profileMap.get(pid);
+          if (prof) groupProfiles.set(pid, prof);
+        });
+
+        const firstOther = groupProfiles.values().next().value;
+        const convoRow: ConversationRow = {
+          conversation: convo as Conversation,
+          otherUser: firstOther ?? { id: "", name: (convo as Conversation).group_name ?? "Group", avatar_url: null, verified: false },
+          participantProfiles: (convo as Conversation).type === "group" ? groupProfiles : undefined,
+          latestMessage: null,
+        };
+        openConversation(convoRow);
+      }
+    }
+  };
+
   onMount(async () => {
     await fetchConversations();
-    if (searchParams.with) {
+    if (searchParams.convo) {
+      await handleConvoParam();
+    } else if (searchParams.with) {
       await handleWithParam();
     }
   });

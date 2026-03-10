@@ -1470,6 +1470,25 @@ body {
     color: var(--text);
     margin-bottom: 20px;
 }
+.event-group-chat-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: 2px solid var(--primary);
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    background: transparent;
+    color: var(--primary);
+    transition: all 0.2s;
+    margin-top: 12px;
+}
+.event-group-chat-btn:active { transform: scale(0.98); opacity: 0.8; }
 .event-detail-rsvp {
     display: block;
     width: 100%;
