@@ -23,8 +23,15 @@ interface EventRow {
   price: string | null;
   image_url: string | null;
   place_id: string | null;
+  visibility: string | null;
   created_at: string;
   event_rsvps: { count: number }[];
+}
+
+interface FriendProfile {
+  id: string;
+  name: string;
+  avatar_url: string | null;
 }
 
 interface AttendeeProfile {
@@ -84,6 +91,10 @@ const Events: Component = () => {
   const [photoFile, setPhotoFile] = createSignal<File | null>(null);
   const [photoPreview, setPhotoPreview] = createSignal<string | null>(null);
   const [capacityMode, setCapacityMode] = createSignal<"open" | "limited">("open");
+  const [visibility, setVisibility] = createSignal<"public" | "friends" | "invite">("public");
+  const [inviteFriends, setInviteFriends] = createSignal<FriendProfile[]>([]);
+  const [selectedInvites, setSelectedInvites] = createSignal<Set<string>>(new Set());
+  const [loadingFriends, setLoadingFriends] = createSignal(false);
 
   let locationContainerRef: HTMLDivElement | undefined;
   let photoInputRef: HTMLInputElement | undefined;
@@ -94,11 +105,30 @@ const Events: Component = () => {
   });
 
   const fetchEvents = async () => {
-    const { data, error } = await supabase
+    const myId = user()?.id;
+
+    // Try RPC for visibility-filtered events, fall back to direct query
+    let eventIds: string[] | null = null;
+    if (myId) {
+      try {
+        const { data: visible } = await supabase.rpc("get_visible_events", { my_id: myId });
+        if (visible) eventIds = visible.map((e: any) => e.id);
+      } catch {
+        // RPC not available yet — fetch all
+      }
+    }
+
+    let query = supabase
       .from("events")
       .select("*, event_rsvps(count)")
       .order("date", { ascending: true })
       .gte("date", new Date().toISOString());
+
+    if (eventIds) {
+      query = query.in("id", eventIds);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       showToast("Failed to load events");
@@ -242,7 +272,52 @@ const Events: Component = () => {
     setPhotoFile(null);
     setPhotoPreview(null);
     setCapacityMode("open");
+    setVisibility("public");
+    setSelectedInvites(new Set());
     if (photoInputRef) photoInputRef.value = "";
+  };
+
+  const fetchInviteFriends = async () => {
+    const myId = user()?.id;
+    if (!myId) return;
+    setLoadingFriends(true);
+    try {
+      const { data } = await supabase.rpc("get_mutual_friends", { my_id: myId });
+      setInviteFriends((data ?? []) as FriendProfile[]);
+    } catch {
+      // Fallback if RPC not available
+      const { data: waves } = await supabase
+        .from("waves")
+        .select("target_id")
+        .eq("user_id", myId);
+      const myTargets = new Set((waves ?? []).map((w: any) => w.target_id));
+      const { data: incoming } = await supabase
+        .from("waves")
+        .select("user_id")
+        .eq("target_id", myId);
+      const mutualIds = (incoming ?? [])
+        .map((w: any) => w.user_id)
+        .filter((uid: string) => myTargets.has(uid));
+      if (mutualIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("users")
+          .select("id, name, avatar_url")
+          .in("id", mutualIds);
+        setInviteFriends((profiles ?? []) as FriendProfile[]);
+      } else {
+        setInviteFriends([]);
+      }
+    }
+    setLoadingFriends(false);
+  };
+
+  const toggleInvite = (id: string) => {
+    setSelectedInvites((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const handlePhotoSelect = (e: Event) => {
@@ -311,14 +386,28 @@ const Events: Component = () => {
       price: price().trim() || null,
       place_id: placeId(),
       image_url: imageUrl,
+      visibility: visibility(),
     };
 
-    const { error } = await supabase.from("events").insert(payload);
+    const { data: newEvent, error } = await supabase
+      .from("events")
+      .insert(payload)
+      .select()
+      .single();
 
     if (error) {
       showToast("Failed to create event");
       setSubmitting(false);
       return;
+    }
+
+    // Insert invites for invite-only events
+    if (visibility() === "invite" && newEvent && selectedInvites().size > 0) {
+      const inviteRows = [...selectedInvites()].map((uid) => ({
+        event_id: (newEvent as any).id,
+        user_id: uid,
+      }));
+      await supabase.from("event_invites").insert(inviteRows);
     }
 
     setSubmitting(false);
@@ -388,7 +477,17 @@ const Events: Component = () => {
                       </div>
                     </Show>
                     <div class="event-info">
-                      <h3>{event.title}</h3>
+                      <h3>
+                        {event.title}
+                        <Show when={event.visibility && event.visibility !== "public"}>
+                          <span class="visibility-badge">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                              <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" />
+                            </svg>
+                            {event.visibility === "friends" ? "Friends" : "Invite"}
+                          </span>
+                        </Show>
+                      </h3>
                       <div class="meta">
                         {event.location ? `${event.location} · ` : ""}
                         {formatTime(event.date)}
@@ -456,7 +555,17 @@ const Events: Component = () => {
                 </div>
 
                 <div class="event-detail-body">
-                  <h2 class="event-detail-title">{ev().title}</h2>
+                  <h2 class="event-detail-title">
+                    {ev().title}
+                    <Show when={ev().visibility && ev().visibility !== "public"}>
+                      <span class="visibility-badge" style="margin-left:8px;vertical-align:middle">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                          <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" />
+                        </svg>
+                        {ev().visibility === "friends" ? "Friends Only" : "Invite Only"}
+                      </span>
+                    </Show>
+                  </h2>
 
                   <div class="event-detail-row">
                     <span class="event-detail-icon-label">Date</span>
@@ -657,6 +766,73 @@ const Events: Component = () => {
                     placeholder="Max attendees"
                     style="margin-top:8px"
                   />
+                </Show>
+              </div>
+              <div class="sheet-field">
+                <label>Visibility</label>
+                <div class="capacity-toggle">
+                  <button
+                    type="button"
+                    class={`capacity-toggle-btn${visibility() === "public" ? " capacity-toggle-active" : ""}`}
+                    onClick={() => setVisibility("public")}
+                  >
+                    Public
+                  </button>
+                  <button
+                    type="button"
+                    class={`capacity-toggle-btn${visibility() === "friends" ? " capacity-toggle-active" : ""}`}
+                    onClick={() => setVisibility("friends")}
+                  >
+                    Friends
+                  </button>
+                  <button
+                    type="button"
+                    class={`capacity-toggle-btn${visibility() === "invite" ? " capacity-toggle-active" : ""}`}
+                    onClick={() => { setVisibility("invite"); fetchInviteFriends(); }}
+                  >
+                    Invite Only
+                  </button>
+                </div>
+                <Show when={visibility() === "invite"}>
+                  <div class="invite-picker" style="margin-top:8px">
+                    <Show when={!loadingFriends()} fallback={
+                      <div style="display:flex;justify-content:center;padding:12px">
+                        <div class="loading-spinner" />
+                      </div>
+                    }>
+                      <Show when={inviteFriends().length > 0} fallback={
+                        <div style="font-size:13px;color:var(--text-secondary);padding:8px 0">
+                          No mutual waves yet
+                        </div>
+                      }>
+                        <div class="invite-friend-list">
+                          <For each={inviteFriends()}>
+                            {(friend) => {
+                              const isSelected = () => selectedInvites().has(friend.id);
+                              return (
+                                <div
+                                  class={`invite-friend-item${isSelected() ? " invite-selected" : ""}`}
+                                  onClick={() => toggleInvite(friend.id)}
+                                >
+                                  <div class={`invite-friend-avatar${friend.avatar_url ? " avatar-photo" : ""}`}>
+                                    <Show when={friend.avatar_url} fallback={getInitials(friend.name)}>
+                                      <img src={friend.avatar_url!} alt={friend.name} />
+                                    </Show>
+                                  </div>
+                                  <span>{friend.name}</span>
+                                  <Show when={isSelected()}>
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="var(--primary)" style="margin-left:auto">
+                                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                                    </svg>
+                                  </Show>
+                                </div>
+                              );
+                            }}
+                          </For>
+                        </div>
+                      </Show>
+                    </Show>
+                  </div>
                 </Show>
               </div>
               <div class="sheet-field">

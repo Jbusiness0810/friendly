@@ -88,10 +88,18 @@ const Home: Component = () => {
 
   const hasSentWave = (personId: string) => sentWaves().has(personId);
 
-  // Derived: block filter → search → interest filter
+  // Derived: gender → block filter → search → interest filter
   const filteredPeople = () => {
     const blocked = blockedIds();
     let result = people().filter((p) => !blocked.has(p.id));
+
+    // Gender-based matching: men see men, women see women, others see everyone
+    const myGender = profile()?.gender;
+    if (myGender === "Man") {
+      result = result.filter((p) => (p as any).gender !== "Woman");
+    } else if (myGender === "Woman") {
+      result = result.filter((p) => (p as any).gender !== "Man");
+    }
 
     const q = searchQuery().toLowerCase().trim();
     if (q) {

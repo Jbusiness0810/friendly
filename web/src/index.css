@@ -1507,6 +1507,170 @@ body {
 }
 .pac-item:hover { background: var(--active-bg); }
 
+/* Profile gender display */
+.profile-gender {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* Visibility badge */
+.visibility-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--active-bg);
+    padding: 2px 8px;
+    border-radius: 10px;
+    vertical-align: middle;
+    margin-left: 6px;
+}
+
+/* Friend picker (shared between Chat & Events) */
+.friend-picker-list {
+    max-height: 300px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.friend-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 4px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.15s;
+}
+.friend-picker-item:active { background: var(--active-bg); }
+.friend-picker-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--avatar-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #FFFFFF;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.friend-picker-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.friend-picker-name {
+    font-size: 15px;
+    font-weight: 500;
+}
+
+/* Friend selector (group creation multi-select) */
+.friend-selector-list {
+    max-height: 250px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.friend-selector-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 4px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.15s;
+}
+.friend-selector-item:active { background: var(--active-bg); }
+.friend-selected { background: rgba(0, 122, 255, 0.06); }
+.friend-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+}
+.friend-check-active {
+    border-color: var(--primary);
+    background: var(--primary);
+}
+
+/* Group avatar icon in chat list */
+.group-avatar-icon {
+    background: var(--avatar-group-bg) !important;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Group message sender name */
+.group-msg-sender {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-left: 16px;
+    margin-bottom: 2px;
+    margin-top: 8px;
+}
+
+/* Group member count in header */
+.convo-group-count {
+    display: block;
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+/* Invite friend picker (events) */
+.invite-friend-list {
+    max-height: 180px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px;
+}
+.invite-friend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 8px;
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: background 0.15s;
+}
+.invite-friend-item:active { background: var(--active-bg); }
+.invite-selected { background: rgba(0, 122, 255, 0.06); }
+.invite-friend-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--avatar-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #FFFFFF;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.invite-friend-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 /* ================================================================ */
 /* EMPTY STATE                                                       */
 /* ================================================================ */

@@ -18,6 +18,11 @@ interface Question {
 
 const QUESTIONS: Question[] = [
   {
+    text: "How do you identify?",
+    chips: ["Man", "Woman", "Other", "Prefer not to say"],
+    multi: false,
+  },
+  {
     text: "What are you looking for?",
     chips: [
       "Gym partner",
@@ -105,7 +110,7 @@ const Onboarding: Component = () => {
   const [placeholderIdx, setPlaceholderIdx] = createSignal(0);
 
   // Store accumulated answers
-  const answers: string[][] = [[], [], [], [], [], []];
+  const answers: string[][] = [[], [], [], [], [], [], []];
 
   let messagesEndRef: HTMLDivElement | undefined;
   let inputRef: HTMLInputElement | undefined;
@@ -214,17 +219,25 @@ const Onboarding: Component = () => {
     const u = user();
     if (!u) return;
 
+    // Gender: if "Other" selected with custom text, use the custom text
+    const genderAnswers = answers[0];
+    let genderVal = genderAnswers[0] ?? null;
+    if (genderVal === "Other" && genderAnswers.length > 1) {
+      genderVal = genderAnswers[genderAnswers.length - 1];
+    }
+
     const { error } = await supabase.from("users").upsert({
       id: u.id,
       email: u.email,
       name: u.user_metadata?.full_name ?? u.email?.split("@")[0] ?? "",
       avatar_url: u.user_metadata?.avatar_url ?? null,
-      intent: answers[0],
-      social_style: answers[1][0] ?? null,
-      interests: answers[2],
-      ideal_hangouts: answers[3],
-      political_alignment: answers[4][0] ?? null,
-      fun_fact: answers[5][0] ?? null,
+      gender: genderVal,
+      intent: answers[1],
+      social_style: answers[2][0] ?? null,
+      interests: answers[3],
+      ideal_hangouts: answers[4],
+      political_alignment: answers[5][0] ?? null,
+      fun_fact: answers[6][0] ?? null,
       location: locationText().trim() || null,
       verified: false,
     });

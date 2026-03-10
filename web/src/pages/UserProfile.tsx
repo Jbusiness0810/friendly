@@ -207,6 +207,9 @@ const UserProfilePage: Component = () => {
                       "{p().fun_fact}"
                     </div>
                   </Show>
+                  <Show when={(p() as any).gender}>
+                    <div class="profile-gender">{(p() as any).gender}</div>
+                  </Show>
                   <Show when={p().location}>
                     <div class="profile-location">{p().location}</div>
                   </Show>

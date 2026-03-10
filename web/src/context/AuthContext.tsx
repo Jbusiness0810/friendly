@@ -23,6 +23,7 @@ export interface UserProfile {
   fun_fact: string | null;
   ideal_hangouts: string[];
   political_alignment: string | null;
+  gender: string | null;
   verified: boolean;
   created_at: string;
 }
