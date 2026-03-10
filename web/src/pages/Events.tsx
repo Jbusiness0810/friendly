@@ -200,7 +200,7 @@ const Events: Component = () => {
         }
       });
 
-    // Priority: user-uploaded photo > Google Places by place_id > search fallback
+    // Priority: user-uploaded photo > Google Places by place_id > location search
     if (event.image_url) {
       setDetailPhoto(event.image_url);
       setLoadingPhoto(false);
@@ -216,9 +216,7 @@ const Events: Component = () => {
       if (!photo && event.location) {
         photo = await searchPlacePhoto(event.location);
       }
-      if (!photo && event.title) {
-        photo = await searchPlacePhoto(event.title);
-      }
+      // Don't search by title — it produces irrelevant photos
 
       setDetailPhoto(photo);
     }
@@ -441,8 +439,10 @@ const Events: Component = () => {
                   <Show when={detailPhoto()} fallback={
                     <Show when={loadingPhoto()} fallback={
                       <div class="event-detail-hero-placeholder">
-                        <span>📍</span>
-                        <span>{ev().location ?? "Event"}</span>
+                        <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" style="opacity:0.4">
+                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                        </svg>
+                        <span>{ev().location ?? ev().title}</span>
                       </div>
                     }>
                       <div class="event-detail-hero-placeholder">
@@ -459,24 +459,22 @@ const Events: Component = () => {
                   <h2 class="event-detail-title">{ev().title}</h2>
 
                   <div class="event-detail-row">
-                    <span class="event-detail-icon">📅</span>
+                    <span class="event-detail-icon-label">Date</span>
                     <div>
                       <div class="event-detail-label">{formatFullDate(ev().date)}</div>
                       <div class="event-detail-sub">{formatTime(ev().date)}</div>
                     </div>
                   </div>
 
-                  <Show when={ev().location}>
-                    <div class="event-detail-row">
-                      <span class="event-detail-icon">📍</span>
-                      <div>
-                        <div class="event-detail-label">{ev().location}</div>
-                      </div>
+                  <div class="event-detail-row">
+                    <span class="event-detail-icon-label">Location</span>
+                    <div>
+                      <div class="event-detail-label">{ev().location || "TBD"}</div>
                     </div>
-                  </Show>
+                  </div>
 
                   <div class="event-detail-row">
-                    <span class="event-detail-icon">👥</span>
+                    <span class="event-detail-icon-label">Capacity</span>
                     <div>
                       <div class="event-detail-label">
                         <Show when={!ev().capacity} fallback={<span>{getCapacityDisplay(ev())}</span>}>
@@ -488,6 +486,13 @@ const Events: Component = () => {
                           </Show>
                         </Show>
                       </div>
+                    </div>
+                  </div>
+
+                  <div class="event-detail-row">
+                    <span class="event-detail-icon-label">Price</span>
+                    <div>
+                      <div class="event-detail-label">{getPriceDisplay(ev())}</div>
                     </div>
                   </div>
 
@@ -517,13 +522,6 @@ const Events: Component = () => {
                       </div>
                     </div>
                   </Show>
-
-                  <div class="event-detail-row">
-                    <span class="event-detail-icon">💰</span>
-                    <div>
-                      <div class="event-detail-label">{getPriceDisplay(ev())}</div>
-                    </div>
-                  </div>
 
                   <Show when={ev().description}>
                     <div class="event-detail-description">
