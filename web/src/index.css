@@ -1180,6 +1180,62 @@ body {
 }
 
 /* ================================================================ */
+/* EVENT PHOTO UPLOAD + THUMBNAILS                                   */
+/* ================================================================ */
+.event-photo-upload {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--radius);
+    overflow: hidden;
+    cursor: pointer;
+    margin-bottom: 16px;
+    background: var(--bg);
+    border: 2px dashed var(--border);
+    position: relative;
+}
+.event-photo-upload-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+}
+.event-photo-upload-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.event-photo-upload-change {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 8px;
+    text-align: center;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    font-size: 13px;
+    font-weight: 500;
+}
+.event-thumb {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.event-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ================================================================ */
 /* EVENT DETAIL MODAL                                                */
 /* ================================================================ */
 .event-row-clickable { cursor: pointer; }

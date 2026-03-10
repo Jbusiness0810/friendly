@@ -66,8 +66,11 @@ const Events: Component = () => {
   const [capacity, setCapacity] = createSignal("");
   const [price, setPrice] = createSignal("");
   const [placeId, setPlaceId] = createSignal<string | null>(null);
+  const [photoFile, setPhotoFile] = createSignal<File | null>(null);
+  const [photoPreview, setPhotoPreview] = createSignal<string | null>(null);
 
   let locationContainerRef: HTMLDivElement | undefined;
+  let photoInputRef: HTMLInputElement | undefined;
 
   onMount(async () => {
     loadGoogleMaps().catch(() => {});
@@ -168,10 +171,16 @@ const Events: Component = () => {
     setDetailPhoto(null);
     setLoadingPhoto(true);
 
+    // Priority: user-uploaded photo > Google Places by place_id > search fallback
+    if (event.image_url) {
+      setDetailPhoto(event.image_url);
+      setLoadingPhoto(false);
+      return;
+    }
+
     if (isGoogleMapsLoaded()) {
       let photo: string | null = null;
 
-      // Try place_id first, then location text, then event title
       if (event.place_id) {
         photo = await getPlacePhoto(event.place_id);
       }
@@ -202,6 +211,19 @@ const Events: Component = () => {
     setCapacity("");
     setPrice("");
     setPlaceId(null);
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    if (photoInputRef) photoInputRef.value = "";
+  };
+
+  const handlePhotoSelect = (e: Event) => {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setPhotoPreview(reader.result as string);
+    reader.readAsDataURL(file);
   };
 
   const openCreateModal = () => {
@@ -224,6 +246,28 @@ const Events: Component = () => {
 
     setSubmitting(true);
 
+    // Upload photo if selected
+    let imageUrl: string | null = null;
+    const file = photoFile();
+    if (file) {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `${myId}/${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("event-photos")
+        .upload(path, file, { contentType: file.type });
+
+      if (uploadErr) {
+        showToast("Failed to upload photo");
+        setSubmitting(false);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("event-photos")
+        .getPublicUrl(path);
+      imageUrl = urlData.publicUrl;
+    }
+
     // Combine date + time (default to 12:00 PM if no time set)
     const timeStr = eventTime() || "12:00";
     const combined = `${eventDate()}T${timeStr}`;
@@ -237,6 +281,7 @@ const Events: Component = () => {
       capacity: capacity() ? parseInt(capacity(), 10) : null,
       price: price().trim() || null,
       place_id: placeId(),
+      image_url: imageUrl,
     };
 
     const { error } = await supabase.from("events").insert(payload);
@@ -303,10 +348,16 @@ const Events: Component = () => {
 
                 return (
                   <div class="event-row event-row-clickable" onClick={() => openEventDetail(event)}>
-                    <div class="event-date">
-                      <div class="month">{month}</div>
-                      <div class="day">{day}</div>
-                    </div>
+                    <Show when={event.image_url} fallback={
+                      <div class="event-date">
+                        <div class="month">{month}</div>
+                        <div class="day">{day}</div>
+                      </div>
+                    }>
+                      <div class="event-thumb">
+                        <img src={event.image_url!} alt="" />
+                      </div>
+                    </Show>
                     <div class="event-info">
                       <h3>{event.title}</h3>
                       <div class="meta">
@@ -428,6 +479,31 @@ const Events: Component = () => {
           <div class="bottom-sheet" onClick={(e) => e.stopPropagation()}>
             <h2>New Event</h2>
             <form onSubmit={handleCreate}>
+              {/* Photo upload */}
+              <div
+                class="event-photo-upload"
+                onClick={() => photoInputRef?.click()}
+              >
+                <Show when={photoPreview()} fallback={
+                  <div class="event-photo-upload-placeholder">
+                    <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
+                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0-6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm-7 13c.22-.72 3.31-2 7-2s6.78 1.28 7 2H5zm9-6.43V16h4v2H6v-2h4v-3.43c-3.61.46-7 2.06-8 4.43v2h20v-2c-1-2.37-4.39-3.97-8-4.43z M20 4V1h-2v3h-3v2h3v3h2V6h3V4h-3z" />
+                    </svg>
+                    <span>Add Photo</span>
+                  </div>
+                }>
+                  <img src={photoPreview()!} alt="Preview" class="event-photo-upload-preview" />
+                  <div class="event-photo-upload-change">Change Photo</div>
+                </Show>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  style="display:none"
+                  onChange={handlePhotoSelect}
+                />
+              </div>
+
               <div class="sheet-field">
                 <label>Title *</label>
                 <input
