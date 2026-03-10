@@ -66,6 +66,7 @@ body {
     padding: 4px 20px 14px;
 }
 .nav-header h1 { font-size: 28px; font-weight: 700; }
+.discover-logo { width: 32px; height: 32px; border-radius: 8px; }
 .nav-icon {
     width: 32px;
     height: 32px;
@@ -377,6 +378,98 @@ body {
 .wave-btn-messaged {
     background: #34C759;
 }
+
+/* ================================================================ */
+/* SUGGESTED EVENTS                                                 */
+/* ================================================================ */
+.suggested-section {
+    padding: 16px 0 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+.suggested-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 20px 12px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.suggested-logo {
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+}
+.suggested-scroll {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 0 20px 12px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+}
+.suggested-scroll::-webkit-scrollbar { display: none; }
+.suggested-card {
+    min-width: 190px;
+    max-width: 190px;
+    background: var(--card-bg);
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    scroll-snap-align: start;
+}
+.suggested-card-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 2px;
+}
+.suggested-badge-icon {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+}
+.suggested-card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.25;
+}
+.suggested-card-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.suggested-card-price {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+.suggested-join-btn {
+    margin-top: auto;
+    padding: 8px 0;
+    border: none;
+    border-radius: 10px;
+    background: var(--primary);
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+.suggested-join-btn:active { opacity: 0.8; }
+.suggested-join-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* ================================================================ */
 /* EVENTS                                                           */

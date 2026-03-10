@@ -168,7 +168,10 @@ const Home: Component = () => {
     <>
       <div class="nav-header">
         <div>
-          <h1>Discover</h1>
+          <div style="display:flex;align-items:center;gap:10px">
+            <img src="/icon.png" class="discover-logo" alt="Friendly" />
+            <h1>Discover</h1>
+          </div>
           <div class="neighborhood-tag">
             {profile()?.location ?? "Nearby"} · {filteredPeople().length} people nearby
           </div>

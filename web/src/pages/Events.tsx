@@ -3,6 +3,7 @@ import { useNavigate } from "@solidjs/router";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import { showToast } from "../lib/toast";
+import { getSuggestedEvents, type SuggestedEvent } from "../lib/suggested-events";
 import {
   loadGoogleMaps,
   isGoogleMapsLoaded,
@@ -64,12 +65,14 @@ const getInitials = (name: string) => {
 };
 
 const Events: Component = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
 
   const [events, setEvents] = createSignal<EventRow[]>([]);
   const [myRsvps, setMyRsvps] = createSignal<Set<string>>(new Set());
   const [loading, setLoading] = createSignal(true);
+  const [suggested, setSuggested] = createSignal<SuggestedEvent[]>([]);
+  const [joiningSuggested, setJoiningSuggested] = createSignal<string | null>(null);
   const [showModal, setShowModal] = createSignal(false);
   const [submitting, setSubmitting] = createSignal(false);
 
@@ -102,6 +105,12 @@ const Events: Component = () => {
   onMount(async () => {
     loadGoogleMaps().catch(() => {});
     await loadAll();
+
+    // Generate suggested events based on user profile
+    const p = profile();
+    if (p) {
+      setSuggested(getSuggestedEvents(p));
+    }
   });
 
   const fetchEvents = async () => {
@@ -153,6 +162,50 @@ const Events: Component = () => {
     setLoading(true);
     await Promise.all([fetchEvents(), fetchMyRsvps()]);
     setLoading(false);
+  };
+
+  const joinSuggestedEvent = async (suggestion: SuggestedEvent) => {
+    const myId = user()?.id;
+    if (!myId) return;
+
+    setJoiningSuggested(suggestion.id);
+
+    const { data: newEvent, error } = await supabase
+      .from("events")
+      .insert({
+        creator_id: myId,
+        title: suggestion.title,
+        description: suggestion.description + "\n\nSuggested by Friendly",
+        location: suggestion.location,
+        date: suggestion.date,
+        capacity: null,
+        price: suggestion.isFree ? null : null,
+        visibility: "public",
+      })
+      .select()
+      .single();
+
+    if (error) {
+      showToast("Failed to create event");
+      setJoiningSuggested(null);
+      return;
+    }
+
+    // Auto-RSVP
+    if (newEvent) {
+      await supabase.from("event_rsvps").insert({
+        event_id: (newEvent as any).id,
+        user_id: myId,
+      });
+      setMyRsvps((prev) => new Set(prev).add((newEvent as any).id));
+    }
+
+    // Remove from suggestions
+    setSuggested((prev) => prev.filter((s) => s.id !== suggestion.id));
+    setJoiningSuggested(null);
+
+    showToast("You're in! Event created.", "success");
+    await fetchEvents();
   };
 
   const toggleRsvp = async (eventId: string, e?: MouseEvent) => {
@@ -447,6 +500,41 @@ const Events: Component = () => {
           <div class="loading-spinner" />
         </div>
       }>
+        {/* Suggested for You */}
+        <Show when={suggested().length > 0}>
+          <div class="suggested-section">
+            <div class="suggested-header">
+              <img src="/icon.png" alt="Friendly" class="suggested-logo" />
+              <span>Suggested for You</span>
+            </div>
+            <div class="suggested-scroll">
+              <For each={suggested()}>
+                {(s) => (
+                  <div class="suggested-card">
+                    <div class="suggested-card-badge">
+                      <img src="/icon.png" alt="" class="suggested-badge-icon" />
+                      Friendly
+                    </div>
+                    <div class="suggested-card-title">{s.title}</div>
+                    <div class="suggested-card-meta">{s.timeLabel}</div>
+                    <div class="suggested-card-meta">{s.location}</div>
+                    <Show when={!s.isFree}>
+                      <div class="suggested-card-price">Paid</div>
+                    </Show>
+                    <button
+                      class="suggested-join-btn"
+                      onClick={() => joinSuggestedEvent(s)}
+                      disabled={joiningSuggested() === s.id}
+                    >
+                      {joiningSuggested() === s.id ? "Joining..." : "Join"}
+                    </button>
+                  </div>
+                )}
+              </For>
+            </div>
+          </div>
+        </Show>
+
         <Show when={events().length > 0} fallback={
           <div class="empty-state">
             No upcoming events.<br />Create one!
