@@ -202,14 +202,13 @@ const Events: Component = () => {
     }
 
     // Create a group chat for this event so attendees can coordinate
-    try {
-      await supabase.from("conversations").insert({
-        type: "group",
-        participants: [myId],
-        group_name: suggestion.title,
-      });
-    } catch {
-      // Non-critical — event still created even if chat fails
+    const { error: chatError } = await supabase.from("conversations").insert({
+      type: "group",
+      participants: [myId],
+      group_name: suggestion.title,
+    });
+    if (chatError) {
+      console.error("Failed to create event group chat:", chatError);
     }
 
     // Remove from suggestions
@@ -519,7 +518,6 @@ const Events: Component = () => {
         <Show when={suggested().length > 0}>
           <div class="suggested-section">
             <div class="suggested-header">
-              <div class="suggested-logo"><img src="/icon.png" alt="Friendly" /></div>
               <span>Suggested for You</span>
             </div>
             <div class="suggested-scroll">
