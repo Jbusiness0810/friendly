@@ -134,7 +134,10 @@ const Waves: Component = () => {
   return (
     <>
       <div class="nav-header">
-        <h1>Waves</h1>
+        <div style="display:flex;align-items:center;gap:10px">
+          <img src="/icon.png" class="nav-logo" alt="Friendly" />
+          <h1>Waves</h1>
+        </div>
       </div>
 
       <Show when={!loading()} fallback={

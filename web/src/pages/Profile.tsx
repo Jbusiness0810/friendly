@@ -181,7 +181,10 @@ const Profile: Component = () => {
   return (
     <>
       <div class="nav-header">
-        <h1>Profile</h1>
+        <div style="display:flex;align-items:center;gap:10px">
+          <img src="/icon.png" class="nav-logo" alt="Friendly" />
+          <h1>Profile</h1>
+        </div>
       </div>
       <div class="content">
         <Show when={profile()} fallback={<div>Loading...</div>}>

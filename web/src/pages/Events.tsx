@@ -485,7 +485,10 @@ const Events: Component = () => {
   return (
     <>
       <div class="nav-header">
-        <h1>Events</h1>
+        <div style="display:flex;align-items:center;gap:10px">
+          <img src="/icon.png" class="nav-logo" alt="Friendly" />
+          <h1>Events</h1>
+        </div>
         <div
           class="nav-icon"
           style="background:none;font-size:28px;color:var(--primary)"

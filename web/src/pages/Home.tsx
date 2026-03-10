@@ -169,7 +169,7 @@ const Home: Component = () => {
       <div class="nav-header">
         <div>
           <div style="display:flex;align-items:center;gap:10px">
-            <img src="/icon.png" class="discover-logo" alt="Friendly" />
+            <img src="/icon.png" class="nav-logo" alt="Friendly" />
             <h1>Discover</h1>
           </div>
           <div class="neighborhood-tag">
