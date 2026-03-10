@@ -170,22 +170,22 @@ const Events: Component = () => {
 
     setJoiningSuggested(suggestion.id);
 
+    const payload: Record<string, unknown> = {
+      creator_id: myId,
+      title: suggestion.title,
+      description: suggestion.description + "\n\nSuggested by Friendly",
+      location: suggestion.location,
+      date: suggestion.date,
+    };
+
     const { data: newEvent, error } = await supabase
       .from("events")
-      .insert({
-        creator_id: myId,
-        title: suggestion.title,
-        description: suggestion.description + "\n\nSuggested by Friendly",
-        location: suggestion.location,
-        date: suggestion.date,
-        capacity: null,
-        price: suggestion.isFree ? null : null,
-        visibility: "public",
-      })
+      .insert(payload)
       .select()
       .single();
 
     if (error) {
+      console.error("Join suggested event error:", error);
       showToast("Failed to create event");
       setJoiningSuggested(null);
       return;
