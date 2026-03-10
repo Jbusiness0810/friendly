@@ -7,7 +7,7 @@ import {
   For,
   type Component,
 } from "solid-js";
-import { useSearchParams } from "@solidjs/router";
+import { useSearchParams, useNavigate } from "@solidjs/router";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -65,6 +65,7 @@ const getInitials = (name: string) => {
 const Chat: Component = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const [rows, setRows] = createSignal<ConversationRow[]>([]);
   const [loadingList, setLoadingList] = createSignal(true);
@@ -633,16 +634,21 @@ const Chat: Component = () => {
                   <path d="M10 2L2 10l8 8" />
                 </svg>
               </button>
-              <div class={`convo-avatar${convo().otherUser.avatar_url ? " avatar-photo" : ""}`}>
-                <Show when={convo().otherUser.avatar_url} fallback={getInitials(convo().otherUser.name)}>
-                  <img src={convo().otherUser.avatar_url!} alt={convo().otherUser.name} />
-                </Show>
-              </div>
-              <div>
-                <span class="convo-name">{convo().otherUser.name}</span>
-                <Show when={convo().otherUser.verified}>
-                  <span class="convo-verified">&#10003; Verified</span>
-                </Show>
+              <div
+                class="convo-header-profile"
+                onClick={() => navigate(`/user/${convo().otherUser.id}`)}
+              >
+                <div class={`convo-avatar${convo().otherUser.avatar_url ? " avatar-photo" : ""}`}>
+                  <Show when={convo().otherUser.avatar_url} fallback={getInitials(convo().otherUser.name)}>
+                    <img src={convo().otherUser.avatar_url!} alt={convo().otherUser.name} />
+                  </Show>
+                </div>
+                <div>
+                  <span class="convo-name">{convo().otherUser.name}</span>
+                  <Show when={convo().otherUser.verified}>
+                    <span class="convo-verified">&#10003; Verified</span>
+                  </Show>
+                </div>
               </div>
             </div>
             <Show when={loadingMessages()}>
@@ -706,26 +712,6 @@ const Chat: Component = () => {
               </div>
             </Show>
             <div class="convo-input">
-              <button
-                class="attach-btn"
-                onClick={() => fileInputRef.click()}
-                disabled={uploading()}
-              >
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" />
-                </svg>
-              </button>
-              <input
-                ref={fileInputRef!}
-                type="file"
-                accept="image/*"
-                style="display:none"
-                onChange={(e) => {
-                  const f = (e.target as HTMLInputElement).files?.[0];
-                  if (f) sendImage(f);
-                  (e.target as HTMLInputElement).value = "";
-                }}
-              />
               <input
                 type="text"
                 placeholder="Message"
@@ -744,7 +730,7 @@ const Chat: Component = () => {
               <button
                 class="send-btn"
                 onClick={sendMessage}
-                disabled={!inputText().trim() && !uploading()}
+                disabled={!inputText().trim()}
               >
                 <svg
                   width="16"

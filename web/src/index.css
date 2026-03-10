@@ -213,13 +213,13 @@ body {
     border-radius: 18px;
     overflow: hidden;
     /* Thick playing-card effect: hard edge + soft ambient shadow */
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    border-bottom: 4px solid rgba(0, 0, 0, 0.10);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-bottom: 6px solid rgba(0, 0, 0, 0.15);
     box-shadow:
-        0 2px 0 rgba(0, 0, 0, 0.04),
-        0 4px 0 rgba(0, 0, 0, 0.02),
-        0 8px 24px rgba(0, 0, 0, 0.12),
-        0 16px 40px rgba(0, 0, 0, 0.06);
+        0 2px 0 rgba(0, 0, 0, 0.06),
+        0 4px 0 rgba(0, 0, 0, 0.04),
+        0 8px 24px rgba(0, 0, 0, 0.16),
+        0 20px 48px rgba(0, 0, 0, 0.10);
     cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
     position: relative;
@@ -227,18 +227,18 @@ body {
 .discover-card:active {
     transform: scale(0.98) translateY(3px);
     box-shadow:
-        0 1px 0 rgba(0, 0, 0, 0.04),
-        0 2px 8px rgba(0, 0, 0, 0.08);
-    border-bottom-width: 2px;
+        0 1px 0 rgba(0, 0, 0, 0.06),
+        0 2px 8px rgba(0, 0, 0, 0.10);
+    border-bottom-width: 3px;
 }
 [data-theme="dark"] .discover-card {
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-bottom: 4px solid rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-bottom: 6px solid rgba(0, 0, 0, 0.40);
     box-shadow:
-        0 2px 0 rgba(0, 0, 0, 0.15),
-        0 4px 0 rgba(0, 0, 0, 0.1),
-        0 8px 24px rgba(0, 0, 0, 0.25),
-        0 16px 40px rgba(0, 0, 0, 0.15);
+        0 2px 0 rgba(0, 0, 0, 0.20),
+        0 4px 0 rgba(0, 0, 0, 0.15),
+        0 8px 24px rgba(0, 0, 0, 0.30),
+        0 20px 48px rgba(0, 0, 0, 0.20);
 }
 
 /* Hero photo area */
@@ -496,6 +496,15 @@ body {
 }
 .convo-name { font-size: 15px; font-weight: 600; }
 .convo-verified { color: var(--blue); font-size: 12px; margin-left: 2px; }
+.convo-header-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    flex: 1;
+    min-width: 0;
+}
+.convo-header-profile:active { opacity: 0.7; }
 .convo-messages {
     flex: 1;
     overflow-y: auto;
@@ -1364,6 +1373,105 @@ body {
     background: var(--border);
     color: var(--text-secondary);
     cursor: not-allowed;
+}
+
+/* Event attendees */
+.event-attendees {
+    margin-bottom: 16px;
+}
+.event-attendees-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 10px;
+}
+.event-attendees-scroll {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.event-attendees-scroll::-webkit-scrollbar { display: none; }
+.event-attendee {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.event-attendee:active { opacity: 0.7; }
+.event-attendee-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--avatar-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #FFFFFF;
+    overflow: hidden;
+}
+.event-attendee-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.event-attendee-name {
+    font-size: 11px;
+    color: var(--text-secondary);
+    max-width: 48px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+}
+
+/* Capacity toggle */
+.capacity-toggle {
+    display: flex;
+    gap: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+.capacity-toggle-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    background: var(--input-bg);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.capacity-toggle-btn:not(:last-child) {
+    border-right: 1px solid var(--border);
+}
+.capacity-toggle-active {
+    background: var(--primary);
+    color: #FFFFFF;
+}
+
+/* Open badge */
+.open-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #34C759;
+    background: rgba(52, 199, 89, 0.1);
+    padding: 2px 8px;
+    border-radius: 10px;
 }
 
 /* Google Places Autocomplete styling */

@@ -1,4 +1,5 @@
 import { createSignal, onMount, Show, For, type Component } from "solid-js";
+import { useNavigate } from "@solidjs/router";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import { showToast } from "../lib/toast";
@@ -26,6 +27,12 @@ interface EventRow {
   event_rsvps: { count: number }[];
 }
 
+interface AttendeeProfile {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+}
+
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -43,8 +50,15 @@ function formatFullDate(iso: string): string {
   return `${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
+const getInitials = (name: string) => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+};
+
 const Events: Component = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [events, setEvents] = createSignal<EventRow[]>([]);
   const [myRsvps, setMyRsvps] = createSignal<Set<string>>(new Set());
@@ -56,6 +70,7 @@ const Events: Component = () => {
   const [selectedEvent, setSelectedEvent] = createSignal<EventRow | null>(null);
   const [detailPhoto, setDetailPhoto] = createSignal<string | null>(null);
   const [loadingPhoto, setLoadingPhoto] = createSignal(false);
+  const [attendees, setAttendees] = createSignal<AttendeeProfile[]>([]);
 
   // Form fields
   const [title, setTitle] = createSignal("");
@@ -68,6 +83,7 @@ const Events: Component = () => {
   const [placeId, setPlaceId] = createSignal<string | null>(null);
   const [photoFile, setPhotoFile] = createSignal<File | null>(null);
   const [photoPreview, setPhotoPreview] = createSignal<string | null>(null);
+  const [capacityMode, setCapacityMode] = createSignal<"open" | "limited">("open");
 
   let locationContainerRef: HTMLDivElement | undefined;
   let photoInputRef: HTMLInputElement | undefined;
@@ -170,6 +186,19 @@ const Events: Component = () => {
     setSelectedEvent(event);
     setDetailPhoto(null);
     setLoadingPhoto(true);
+    setAttendees([]);
+
+    // Fetch attendees
+    supabase
+      .from("event_rsvps")
+      .select("user_id, users(id, name, avatar_url)")
+      .eq("event_id", event.id)
+      .then(({ data }) => {
+        if (data) {
+          const profiles = data.map((r: any) => r.users as AttendeeProfile).filter(Boolean);
+          setAttendees(profiles);
+        }
+      });
 
     // Priority: user-uploaded photo > Google Places by place_id > search fallback
     if (event.image_url) {
@@ -199,6 +228,7 @@ const Events: Component = () => {
   const closeDetail = () => {
     setSelectedEvent(null);
     setDetailPhoto(null);
+    setAttendees([]);
   };
 
   // -- Create Event Form --
@@ -213,6 +243,7 @@ const Events: Component = () => {
     setPlaceId(null);
     setPhotoFile(null);
     setPhotoPreview(null);
+    setCapacityMode("open");
     if (photoInputRef) photoInputRef.value = "";
   };
 
@@ -302,8 +333,8 @@ const Events: Component = () => {
 
   const getCapacityDisplay = (event: EventRow): string => {
     const count = getRsvpCount(event);
-    if (event.capacity) return `${count}/${event.capacity}`;
-    return count > 0 ? `${count} going` : "Open";
+    if (event.capacity) return `${count}/${event.capacity} spots`;
+    return count > 0 ? `${count} going` : "Open to all";
   };
 
   const getPriceDisplay = (event: EventRow): string => {
@@ -364,7 +395,14 @@ const Events: Component = () => {
                         {event.location ? `${event.location} · ` : ""}
                         {formatTime(event.date)}
                       </div>
-                      <div class="meta">{getCapacityDisplay(event)}</div>
+                      <div class="meta">
+                        <Show when={!event.capacity} fallback={<span>{getCapacityDisplay(event)}</span>}>
+                          <span class="open-badge">&#8734; Open</span>
+                          <Show when={getRsvpCount(event) > 0}>
+                            <span> · {getRsvpCount(event)} going</span>
+                          </Show>
+                        </Show>
+                      </div>
                     </div>
                     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
                       <div class="event-badge">{getPriceDisplay(event)}</div>
@@ -440,9 +478,45 @@ const Events: Component = () => {
                   <div class="event-detail-row">
                     <span class="event-detail-icon">👥</span>
                     <div>
-                      <div class="event-detail-label">{getCapacityDisplay(ev())}</div>
+                      <div class="event-detail-label">
+                        <Show when={!ev().capacity} fallback={<span>{getCapacityDisplay(ev())}</span>}>
+                          <span class="open-badge">&#8734; Open to all</span>
+                          <Show when={getRsvpCount(ev()) > 0}>
+                            <span style="margin-left:8px;color:var(--text-secondary);font-weight:400">
+                              · {getRsvpCount(ev())} going
+                            </span>
+                          </Show>
+                        </Show>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Attendees */}
+                  <Show when={attendees().length > 0}>
+                    <div class="event-attendees">
+                      <div class="event-attendees-label">Who's going</div>
+                      <div class="event-attendees-scroll">
+                        <For each={attendees()}>
+                          {(att) => (
+                            <div
+                              class="event-attendee"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/user/${att.id}`);
+                              }}
+                            >
+                              <div class={`event-attendee-avatar${att.avatar_url ? " avatar-photo" : ""}`}>
+                                <Show when={att.avatar_url} fallback={getInitials(att.name)}>
+                                  <img src={att.avatar_url!} alt={att.name} />
+                                </Show>
+                              </div>
+                              <span class="event-attendee-name">{att.name.split(" ")[0]}</span>
+                            </div>
+                          )}
+                        </For>
+                      </div>
+                    </div>
+                  </Show>
 
                   <div class="event-detail-row">
                     <span class="event-detail-icon">💰</span>
@@ -558,26 +632,43 @@ const Events: Component = () => {
                   />
                 </div>
               </div>
-              <div class="sheet-row">
-                <div class="sheet-field">
-                  <label>Capacity</label>
+              <div class="sheet-field">
+                <label>Capacity</label>
+                <div class="capacity-toggle">
+                  <button
+                    type="button"
+                    class={`capacity-toggle-btn${capacityMode() === "open" ? " capacity-toggle-active" : ""}`}
+                    onClick={() => { setCapacityMode("open"); setCapacity(""); }}
+                  >
+                    Open to all
+                  </button>
+                  <button
+                    type="button"
+                    class={`capacity-toggle-btn${capacityMode() === "limited" ? " capacity-toggle-active" : ""}`}
+                    onClick={() => setCapacityMode("limited")}
+                  >
+                    Limited spots
+                  </button>
+                </div>
+                <Show when={capacityMode() === "limited"}>
                   <input
                     type="number"
                     min="1"
                     value={capacity()}
                     onInput={(e) => setCapacity(e.currentTarget.value)}
-                    placeholder="No limit"
+                    placeholder="Max attendees"
+                    style="margin-top:8px"
                   />
-                </div>
-                <div class="sheet-field">
-                  <label>Price</label>
-                  <input
-                    type="text"
-                    value={price()}
-                    onInput={(e) => setPrice(e.currentTarget.value)}
-                    placeholder="Free"
-                  />
-                </div>
+                </Show>
+              </div>
+              <div class="sheet-field">
+                <label>Price</label>
+                <input
+                  type="text"
+                  value={price()}
+                  onInput={(e) => setPrice(e.currentTarget.value)}
+                  placeholder="Free"
+                />
               </div>
               <div class="sheet-actions">
                 <button
