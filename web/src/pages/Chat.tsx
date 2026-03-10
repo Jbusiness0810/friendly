@@ -13,6 +13,7 @@ import { supabase } from "../lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { showToast } from "../lib/toast";
 import { setHasUnread } from "../lib/unread";
+import { blockedIds } from "../lib/blocked";
 
 interface Conversation {
   id: string;
@@ -33,6 +34,9 @@ interface Message {
   conversation_id: string;
   sender_id: string;
   content: string;
+  type?: string;
+  media_url?: string | null;
+  deleted_at?: string | null;
   created_at: string;
 }
 
@@ -64,16 +68,23 @@ const Chat: Component = () => {
 
   const [rows, setRows] = createSignal<ConversationRow[]>([]);
   const [loadingList, setLoadingList] = createSignal(true);
-  const [activeConvo, setActiveConvo] = createSignal<ConversationRow | null>(
-    null
-  );
+  const [activeConvo, setActiveConvo] = createSignal<ConversationRow | null>(null);
   const [messages, setMessages] = createSignal<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = createSignal(false);
   const [inputText, setInputText] = createSignal("");
 
+  // Chat enhancements
+  const [isOtherTyping, setIsOtherTyping] = createSignal(false);
+  const [otherReadAt, setOtherReadAt] = createSignal<string | null>(null);
+  const [uploading, setUploading] = createSignal(false);
+  const [longPressMsg, setLongPressMsg] = createSignal<string | null>(null);
+
   let messagesEndRef!: HTMLDivElement;
+  let fileInputRef!: HTMLInputElement;
   let channel: RealtimeChannel | null = null;
   let listChannel: RealtimeChannel | null = null;
+  let typingTimeout: number | undefined;
+  let typingSendTimeout: number | undefined;
 
   const myId = () => user()?.id ?? "";
 
@@ -107,17 +118,25 @@ const Chat: Component = () => {
   };
 
   const updateUnreadBadge = () => {
-    const unread = rows().some((r) => isUnread(r));
+    const blocked = blockedIds();
+    const filtered = rows().filter((r) => !blocked.has(r.otherUser.id));
+    const unread = filtered.some((r) => isUnread(r));
     setHasUnread(unread);
   };
 
   // Auto-scroll to bottom when messages change
   createEffect(() => {
-    messages(); // track dependency
+    messages();
     if (messagesEndRef) {
       messagesEndRef.scrollIntoView({ behavior: "smooth" });
     }
   });
+
+  // Filtered rows (block filter)
+  const filteredRows = () => {
+    const blocked = blockedIds();
+    return rows().filter((r) => !blocked.has(r.otherUser.id));
+  };
 
   const fetchConversations = async () => {
     const id = myId();
@@ -143,7 +162,6 @@ const Chat: Component = () => {
       return;
     }
 
-    // Collect other participant IDs
     const otherIds = [
       ...new Set(
         convos.flatMap((c: Conversation) =>
@@ -152,7 +170,6 @@ const Chat: Component = () => {
       ),
     ];
 
-    // Fetch other users' profiles
     const { data: profiles } = await supabase
       .from("users")
       .select("id, name, avatar_url, verified")
@@ -161,7 +178,6 @@ const Chat: Component = () => {
     const profileMap = new Map<string, UserProfile>();
     (profiles ?? []).forEach((p: UserProfile) => profileMap.set(p.id, p));
 
-    // Fetch latest message for each conversation
     const rowPromises = convos.map(async (convo: Conversation) => {
       const { data: latestMsg } = await supabase
         .from("messages")
@@ -188,7 +204,6 @@ const Chat: Component = () => {
 
     const allRows = await Promise.all(rowPromises);
 
-    // Sort by latest message time (most recent first)
     allRows.sort((a, b) => {
       const aTime = a.latestMessage?.created_at ?? a.conversation.created_at;
       const bTime = b.latestMessage?.created_at ?? b.conversation.created_at;
@@ -199,7 +214,6 @@ const Chat: Component = () => {
     setLoadingList(false);
     updateUnreadBadge();
 
-    // Subscribe to realtime for conversation list updates
     if (listChannel) supabase.removeChannel(listChannel);
     const convoIds = allRows.map((r) => r.conversation.id);
     if (convoIds.length > 0) {
@@ -236,6 +250,8 @@ const Chat: Component = () => {
     setActiveConvo(row);
     setLoadingMessages(true);
     setMessages([]);
+    setIsOtherTyping(false);
+    setOtherReadAt(null);
 
     // Fetch all messages
     const { data: msgs } = await supabase
@@ -247,7 +263,24 @@ const Chat: Component = () => {
     setMessages((msgs as Message[]) ?? []);
     setLoadingMessages(false);
 
-    // Subscribe to realtime
+    // Upsert own read receipt
+    const otherId = row.otherUser.id;
+    supabase.from("message_reads").upsert({
+      conversation_id: row.conversation.id,
+      reader_id: myId(),
+      last_read_at: new Date().toISOString(),
+    }).then(() => {});
+
+    // Fetch other user's read receipt
+    const { data: readData } = await supabase
+      .from("message_reads")
+      .select("last_read_at")
+      .eq("conversation_id", row.conversation.id)
+      .eq("reader_id", otherId)
+      .maybeSingle();
+    if (readData) setOtherReadAt((readData as any).last_read_at);
+
+    // Subscribe to realtime messages + typing + read receipts
     channel = supabase
       .channel("messages-" + row.conversation.id)
       .on(
@@ -260,13 +293,59 @@ const Chat: Component = () => {
         },
         (payload) => {
           const newMsg = payload.new as Message;
-          // Avoid duplicates from optimistic insert
           setMessages((prev) => {
             if (prev.some((m) => m.id === newMsg.id)) return prev;
             return [...prev, newMsg];
           });
+          // Mark as read if we're viewing the conversation
+          markRead(row.conversation.id);
+          supabase.from("message_reads").upsert({
+            conversation_id: row.conversation.id,
+            reader_id: myId(),
+            last_read_at: new Date().toISOString(),
+          }).then(() => {});
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+          filter: "conversation_id=eq." + row.conversation.id,
+        },
+        (payload) => {
+          // Handle message updates (soft delete)
+          if (payload.eventType === "UPDATE") {
+            const updated = payload.new as Message;
+            setMessages((prev) =>
+              prev.map((m) => (m.id === updated.id ? updated : m))
+            );
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "message_reads",
+          filter: "conversation_id=eq." + row.conversation.id,
+        },
+        (payload) => {
+          const record = payload.new as any;
+          if (record && record.reader_id !== myId()) {
+            setOtherReadAt(record.last_read_at);
+          }
+        }
+      )
+      .on("broadcast", { event: "typing" }, (payload: any) => {
+        if (payload.payload?.user_id !== myId()) {
+          setIsOtherTyping(true);
+          clearTimeout(typingTimeout);
+          typingTimeout = window.setTimeout(() => setIsOtherTyping(false), 3500);
+        }
+      })
       .subscribe();
   };
 
@@ -278,8 +357,21 @@ const Chat: Component = () => {
     setActiveConvo(null);
     setMessages([]);
     setInputText("");
-    // Clear search params when going back
+    setIsOtherTyping(false);
+    setOtherReadAt(null);
     setSearchParams({ with: undefined });
+  };
+
+  const broadcastTyping = () => {
+    if (!channel) return;
+    clearTimeout(typingSendTimeout);
+    typingSendTimeout = window.setTimeout(() => {
+      channel?.send({
+        type: "broadcast",
+        event: "typing",
+        payload: { user_id: myId() },
+      });
+    }, 300);
   };
 
   const sendMessage = async () => {
@@ -290,12 +382,12 @@ const Chat: Component = () => {
     const id = myId();
     setInputText("");
 
-    // Optimistic insert
     const optimisticMsg: Message = {
       id: "optimistic-" + Date.now(),
       conversation_id: convo.conversation.id,
       sender_id: id,
       content,
+      type: "text",
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimisticMsg]);
@@ -306,6 +398,7 @@ const Chat: Component = () => {
         conversation_id: convo.conversation.id,
         sender_id: id,
         content,
+        type: "text",
       })
       .select()
       .single();
@@ -316,12 +409,79 @@ const Chat: Component = () => {
       return;
     }
 
-    // Replace optimistic message with real one
     if (data) {
       setMessages((prev) =>
         prev.map((m) => (m.id === optimisticMsg.id ? (data as Message) : m))
       );
     }
+
+    // Update own read receipt
+    supabase.from("message_reads").upsert({
+      conversation_id: convo.conversation.id,
+      reader_id: id,
+      last_read_at: new Date().toISOString(),
+    }).then(() => {});
+  };
+
+  const sendImage = async (file: File) => {
+    const convo = activeConvo();
+    if (!convo) return;
+
+    setUploading(true);
+
+    const ext = file.name.split(".").pop() ?? "jpg";
+    const path = `${convo.conversation.id}/${Date.now()}.${ext}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from("chat-images")
+      .upload(path, file, { contentType: file.type });
+
+    if (uploadErr) {
+      showToast("Failed to upload image");
+      setUploading(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from("chat-images").getPublicUrl(path);
+
+    const { error } = await supabase.from("messages").insert({
+      conversation_id: convo.conversation.id,
+      sender_id: myId(),
+      content: "Photo",
+      type: "image",
+      media_url: urlData.publicUrl,
+    });
+
+    if (error) showToast("Failed to send image");
+    setUploading(false);
+  };
+
+  const deleteMessage = async () => {
+    const msgId = longPressMsg();
+    if (!msgId) return;
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === msgId ? { ...m, deleted_at: new Date().toISOString(), content: "" } : m
+      )
+    );
+    setLongPressMsg(null);
+
+    const { error } = await supabase
+      .from("messages")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", msgId)
+      .eq("sender_id", myId());
+
+    if (error) {
+      showToast("Failed to delete message");
+    }
+  };
+
+  const isLastSentMessage = (msg: Message) => {
+    const allMsgs = messages();
+    const sentMsgs = allMsgs.filter((m) => m.sender_id === myId() && !m.deleted_at);
+    return sentMsgs.length > 0 && sentMsgs[sentMsgs.length - 1].id === msg.id;
   };
 
   const handleWithParam = async () => {
@@ -329,7 +489,6 @@ const Chat: Component = () => {
     const id = myId();
     if (!withUserId || !id || withUserId === id) return;
 
-    // Find existing conversation with that user
     const { data: existing } = await supabase
       .from("conversations")
       .select("*")
@@ -341,7 +500,6 @@ const Chat: Component = () => {
     if (existing) {
       convo = existing as Conversation;
     } else {
-      // Create a new conversation
       const { data: created, error } = await supabase
         .from("conversations")
         .insert({ type: "direct", participants: [id, withUserId] })
@@ -352,7 +510,6 @@ const Chat: Component = () => {
       convo = created as Conversation;
     }
 
-    // Fetch the other user's profile
     const { data: otherProfile } = await supabase
       .from("users")
       .select("id, name, avatar_url, verified")
@@ -377,8 +534,6 @@ const Chat: Component = () => {
 
   onMount(async () => {
     await fetchConversations();
-
-    // Handle ?with=userId param
     if (searchParams.with) {
       await handleWithParam();
     }
@@ -393,7 +548,16 @@ const Chat: Component = () => {
       supabase.removeChannel(listChannel);
       listChannel = null;
     }
+    clearTimeout(typingTimeout);
+    clearTimeout(typingSendTimeout);
   });
+
+  const getPreviewText = (row: ConversationRow) => {
+    if (!row.latestMessage) return "No messages yet";
+    if (row.latestMessage.deleted_at) return "Message deleted";
+    if (row.latestMessage.type === "image") return "Photo";
+    return row.latestMessage.content;
+  };
 
   return (
     <>
@@ -408,7 +572,7 @@ const Chat: Component = () => {
           </div>
         }>
           <Show
-            when={rows().length > 0}
+            when={filteredRows().length > 0}
             fallback={
               <div class="empty-state">
                 No conversations yet. Wave at someone on Discover!
@@ -416,7 +580,7 @@ const Chat: Component = () => {
             }
           >
             <div class="chat-list">
-              <For each={rows()}>
+              <For each={filteredRows()}>
                 {(row) => (
                   <div
                     class="chat-row"
@@ -430,7 +594,7 @@ const Chat: Component = () => {
                     <div class="chat-body">
                       <div class="chat-name">{row.otherUser.name}</div>
                       <div class="chat-preview">
-                        {row.latestMessage?.content ?? "No messages yet"}
+                        {getPreviewText(row)}
                       </div>
                     </div>
                     <div class="chat-meta">
@@ -491,21 +655,85 @@ const Chat: Component = () => {
                 <For each={messages()}>
                   {(msg) => (
                     <div
-                      class={`msg ${msg.sender_id === myId() ? "msg-sent" : "msg-received"}`}
+                      class={`msg ${msg.sender_id === myId() ? "msg-sent" : "msg-received"}${msg.deleted_at ? " msg-deleted" : ""}`}
+                      onContextMenu={(e) => {
+                        if (msg.sender_id === myId() && !msg.deleted_at) {
+                          e.preventDefault();
+                          setLongPressMsg(msg.id);
+                        }
+                      }}
                     >
-                      {msg.content}
+                      <Show when={msg.deleted_at}>
+                        <span class="msg-deleted-text">Message deleted</span>
+                      </Show>
+                      <Show when={!msg.deleted_at && msg.type === "image" && msg.media_url}>
+                        <img
+                          src={msg.media_url!}
+                          alt="Photo"
+                          class="msg-image"
+                          onClick={() => window.open(msg.media_url!, "_blank")}
+                        />
+                      </Show>
+                      <Show when={!msg.deleted_at && msg.type !== "image"}>
+                        {msg.content}
+                      </Show>
                     </div>
                   )}
                 </For>
+
+                {/* Read receipt */}
+                <Show when={otherReadAt()}>
+                  {(() => {
+                    const allMsgs = messages();
+                    const lastSent = [...allMsgs].reverse().find(
+                      (m) => m.sender_id === myId() && !m.deleted_at
+                    );
+                    if (lastSent && new Date(otherReadAt()!) >= new Date(lastSent.created_at)) {
+                      return <div class="msg-read-receipt">Read</div>;
+                    }
+                    return null;
+                  })()}
+                </Show>
+
+                {/* Typing indicator */}
+                <Show when={isOtherTyping()}>
+                  <div class="typing-indicator-chat">
+                    <span /><span /><span />
+                  </div>
+                </Show>
+
                 <div ref={messagesEndRef!} />
               </div>
             </Show>
             <div class="convo-input">
+              <button
+                class="attach-btn"
+                onClick={() => fileInputRef.click()}
+                disabled={uploading()}
+              >
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" />
+                </svg>
+              </button>
+              <input
+                ref={fileInputRef!}
+                type="file"
+                accept="image/*"
+                style="display:none"
+                onChange={(e) => {
+                  const f = (e.target as HTMLInputElement).files?.[0];
+                  if (f) sendImage(f);
+                  (e.target as HTMLInputElement).value = "";
+                }}
+              />
               <input
                 type="text"
                 placeholder="Message"
                 value={inputText()}
-                onInput={(e) => setInputText(e.currentTarget.value)}
+                onInput={(e) => {
+                  setInputText(e.currentTarget.value);
+                  broadcastTyping();
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -513,7 +741,11 @@ const Chat: Component = () => {
                   }
                 }}
               />
-              <button class="send-btn" onClick={sendMessage}>
+              <button
+                class="send-btn"
+                onClick={sendMessage}
+                disabled={!inputText().trim() && !uploading()}
+              >
                 <svg
                   width="16"
                   height="16"
@@ -526,6 +758,23 @@ const Chat: Component = () => {
             </div>
           </>
         )}
+      </Show>
+
+      {/* Delete message sheet */}
+      <Show when={longPressMsg()}>
+        <div class="modal-overlay" onClick={() => setLongPressMsg(null)}>
+          <div class="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+            <div class="action-sheet-option danger" onClick={deleteMessage}>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+              </svg>
+              Delete Message
+            </div>
+            <div class="action-sheet-option" onClick={() => setLongPressMsg(null)}>
+              Cancel
+            </div>
+          </div>
+        </div>
       </Show>
     </>
   );

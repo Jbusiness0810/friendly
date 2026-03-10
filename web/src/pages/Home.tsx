@@ -5,18 +5,18 @@ import { supabase } from "../lib/supabase";
 import { rankUsersByCompatibility } from "../lib/matching";
 import { useNavigate } from "@solidjs/router";
 import { showToast } from "../lib/toast";
+import { blockedIds } from "../lib/blocked";
+
+const INTEREST_OPTIONS = [
+  "Lifting", "Running", "Cooking", "Gaming", "Music", "Hiking",
+  "Coffee", "Basketball", "Golf", "Outdoors", "Fishing", "Cars",
+];
 
 const WaveIcon = () => (
-  <img src="/icon.png" alt="wave" width="28" height="28" class="wave-btn-icon" />
+  <img src="/wave-hand.png" alt="wave" class="wave-btn-icon" />
 );
 
-const CheckIcon = () => (
-  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="color:var(--text-secondary)">
-    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-  </svg>
-);
-
-const ChatIcon = () => (
+const MessageIcon = () => (
   <svg viewBox="0 0 24 24" width="22" height="22" fill="white">
     <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
   </svg>
@@ -32,7 +32,6 @@ const Home: Component = () => {
     Array<UserProfile & { compatibilityScore: number }>
   >([]);
   const [sentWaves, setSentWaves] = createSignal<Set<string>>(new Set());
-  const [receivedWaves, setReceivedWaves] = createSignal<Set<string>>(new Set());
   const [loading, setLoading] = createSignal(true);
   const [totalCount, setTotalCount] = createSignal(0);
   const [loadingMore, setLoadingMore] = createSignal(false);
@@ -40,16 +39,19 @@ const Home: Component = () => {
     Array<UserProfile & { compatibilityScore: number }>
   >([]);
 
+  // Search & Filter state
+  const [searchQuery, setSearchQuery] = createSignal("");
+  const [selectedInterests, setSelectedInterests] = createSignal<Set<string>>(new Set());
+
   onMount(async () => {
     const myProfile = profile();
     if (!myProfile) return;
     const myId = myProfile.id;
 
     try {
-      const [usersRes, sentRes, receivedRes] = await Promise.all([
+      const [usersRes, sentRes] = await Promise.all([
         supabase.from("users").select("*", { count: "exact" }).neq("id", myId),
         supabase.from("waves").select("target_id").eq("user_id", myId),
-        supabase.from("waves").select("user_id").eq("target_id", myId),
       ]);
 
       if (usersRes.error) throw usersRes.error;
@@ -66,10 +68,6 @@ const Home: Component = () => {
 
       if (sentRes.data) {
         setSentWaves(new Set(sentRes.data.map((w) => w.target_id)));
-      }
-
-      if (receivedRes.data) {
-        setReceivedWaves(new Set(receivedRes.data.map((w) => w.user_id)));
       }
     } catch {
       showToast("Failed to load people nearby");
@@ -88,16 +86,34 @@ const Home: Component = () => {
 
   const hasMore = () => people().length < totalCount();
 
-  const isMatched = (personId: string) =>
-    sentWaves().has(personId) && receivedWaves().has(personId);
-
   const hasSentWave = (personId: string) => sentWaves().has(personId);
+
+  // Derived: block filter → search → interest filter
+  const filteredPeople = () => {
+    const blocked = blockedIds();
+    let result = people().filter((p) => !blocked.has(p.id));
+
+    const q = searchQuery().toLowerCase().trim();
+    if (q) {
+      result = result.filter((p) => p.name.toLowerCase().includes(q));
+    }
+
+    const interests = selectedInterests();
+    if (interests.size > 0) {
+      result = result.filter((p) =>
+        p.interests.some((i) => interests.has(i))
+      );
+    }
+
+    return result;
+  };
+
+  const isFiltering = () => searchQuery() !== "" || selectedInterests().size > 0;
 
   const wave = async (personId: string) => {
     const myProfile = profile();
     if (!myProfile) return;
 
-    // Optimistic UI update
     setSentWaves((prev) => new Set(prev).add(personId));
 
     const { error } = await supabase.from("waves").insert({
@@ -116,9 +132,9 @@ const Home: Component = () => {
   };
 
   const handleWaveClick = (personId: string) => {
-    if (isMatched(personId)) {
+    if (hasSentWave(personId)) {
       navigate(`/chat?with=${personId}`);
-    } else if (!hasSentWave(personId)) {
+    } else {
       wave(personId);
     }
   };
@@ -131,15 +147,68 @@ const Home: Component = () => {
       .toUpperCase()
       .slice(0, 2);
 
+  const toggleInterest = (interest: string) => {
+    setSelectedInterests((prev) => {
+      const next = new Set(prev);
+      if (next.has(interest)) next.delete(interest);
+      else next.add(interest);
+      return next;
+    });
+  };
+
   return (
     <>
       <div class="nav-header">
         <div>
           <h1>Discover</h1>
           <div class="neighborhood-tag">
-            {profile()?.location ?? "Nearby"} · {people().length} people nearby
+            {profile()?.location ?? "Nearby"} · {filteredPeople().length} people nearby
           </div>
         </div>
+      </div>
+
+      {/* Search & Filter Bar */}
+      <div class="search-bar-sticky">
+        <div class="search-input-wrap">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="flex-shrink:0;color:var(--text-secondary)">
+            <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search by name..."
+            value={searchQuery()}
+            onInput={(e) => setSearchQuery(e.currentTarget.value)}
+            class="search-input"
+          />
+          <Show when={searchQuery()}>
+            <button class="search-clear" onClick={() => setSearchQuery("")}>&times;</button>
+          </Show>
+        </div>
+
+        <div class="filter-pills-scroll">
+          <For each={INTEREST_OPTIONS}>
+            {(interest) => (
+              <button
+                class={`filter-pill${selectedInterests().has(interest) ? " filter-pill-active" : ""}`}
+                onClick={() => toggleInterest(interest)}
+              >
+                {interest}
+              </button>
+            )}
+          </For>
+        </div>
+
+        <Show when={isFiltering()}>
+          <div class="filter-status">
+            <span>{filteredPeople().length} result{filteredPeople().length !== 1 ? "s" : ""}</span>
+            <button
+              class="filter-clear-all"
+              onClick={() => { setSearchQuery(""); setSelectedInterests(new Set()); }}
+            >
+              Clear all
+            </button>
+          </div>
+        </Show>
       </div>
 
       <Show when={!loading()} fallback={
@@ -147,13 +216,13 @@ const Home: Component = () => {
           <div class="loading-spinner" />
         </div>
       }>
-        <Show when={people().length > 0} fallback={
+        <Show when={filteredPeople().length > 0} fallback={
           <div style="text-align:center;padding:3rem;color:var(--text-secondary)">
-            No one nearby yet
+            {isFiltering() ? "No one matches your filters" : "No one nearby yet"}
           </div>
         }>
           <div class="discover-feed">
-            <For each={people()}>
+            <For each={filteredPeople()}>
               {(person) => (
                 <div class="discover-card" onClick={() => navigate(`/user/${person.id}`)}>
                   {/* Hero photo */}
@@ -169,16 +238,13 @@ const Home: Component = () => {
                   <div class="discover-info">
                     {/* Floating wave button */}
                     <button
-                      class={`wave-btn${isMatched(person.id) ? " wave-btn-matched" : hasSentWave(person.id) ? " wave-btn-waved" : ""}`}
+                      class={`wave-btn${hasSentWave(person.id) ? " wave-btn-messaged" : ""}`}
                       onClick={(e) => { e.stopPropagation(); handleWaveClick(person.id); }}
                     >
-                      <Show when={isMatched(person.id)}>
-                        <ChatIcon />
+                      <Show when={hasSentWave(person.id)}>
+                        <MessageIcon />
                       </Show>
-                      <Show when={hasSentWave(person.id) && !isMatched(person.id)}>
-                        <CheckIcon />
-                      </Show>
-                      <Show when={!hasSentWave(person.id) && !isMatched(person.id)}>
+                      <Show when={!hasSentWave(person.id)}>
                         <WaveIcon />
                       </Show>
                     </button>
@@ -211,7 +277,7 @@ const Home: Component = () => {
                 </div>
               )}
             </For>
-            <Show when={hasMore()}>
+            <Show when={hasMore() && !isFiltering()}>
               <div class="load-more-wrap">
                 <button
                   class="load-more-btn"

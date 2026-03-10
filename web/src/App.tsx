@@ -1,8 +1,11 @@
-import { type ParentComponent, Show, For, createEffect } from "solid-js";
+import { type ParentComponent, Show, For, createEffect, onMount } from "solid-js";
 import { A, useNavigate } from "@solidjs/router";
 import { useAuth } from "./context/AuthContext";
+import { supabase } from "./lib/supabase";
 import { toasts } from "./lib/toast";
 import { hasUnread } from "./lib/unread";
+import { hasNewWaves } from "./lib/waves-unread";
+import { setBlockedIds } from "./lib/blocked";
 
 const App: ParentComponent = (props) => {
   const { session, profile, loading } = useAuth();
@@ -15,6 +18,19 @@ const App: ParentComponent = (props) => {
       navigate("/landing", { replace: true });
     } else if (!profile()) {
       navigate("/onboarding", { replace: true });
+    }
+  });
+
+  // Fetch blocked users on mount
+  onMount(async () => {
+    const p = profile();
+    if (!p) return;
+    const { data } = await supabase
+      .from("blocks")
+      .select("blocked_user_id")
+      .eq("user_id", p.id);
+    if (data) {
+      setBlockedIds(new Set(data.map((b: any) => b.blocked_user_id)));
     }
   });
 
@@ -52,6 +68,15 @@ const App: ParentComponent = (props) => {
             <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z" />
           </svg>
           Events
+        </A>
+        <A href="/waves" class="tab-chat-wrap">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M23 17v2H1v-2h22zM12.84 7.55c-.62-.62-1.62-.62-2.24 0L8.48 9.67l1.41 1.41 2.12-2.12 5.66 5.66 1.41-1.41-6.24-5.66zM8.48 5.44l1.42-1.42c.62-.62.62-1.62 0-2.24a1.58 1.58 0 00-2.24 0L5.55 3.9 3.43 1.78 2.02 3.19l2.12 2.12L2.02 7.43 3.43 8.84l2.12-2.12L7.67 8.84 9.08 7.43 6.96 5.31z" />
+          </svg>
+          <Show when={hasNewWaves()}>
+            <div class="tab-unread-dot" />
+          </Show>
+          Waves
         </A>
         <A href="/chat" class="tab-chat-wrap">
           <svg viewBox="0 0 24 24" fill="currentColor">

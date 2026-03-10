@@ -4,9 +4,12 @@ import { useAuth } from "../context/AuthContext";
 import type { UserProfile as UserProfileType } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import { showToast } from "../lib/toast";
+import { blockedIds, setBlockedIds } from "../lib/blocked";
+
+const REPORT_REASONS = ["Spam", "Inappropriate content", "Harassment", "Other"];
 
 const WaveIcon = () => (
-  <img src="/icon.png" alt="wave" width="28" height="28" class="wave-btn-icon" />
+  <img src="/wave-hand.png" alt="wave" class="wave-btn-icon" />
 );
 
 const UserProfilePage: Component = () => {
@@ -20,6 +23,13 @@ const UserProfilePage: Component = () => {
   const [hasSentWave, setHasSentWave] = createSignal(false);
   const [hasReceivedWave, setHasReceivedWave] = createSignal(false);
   const [waving, setWaving] = createSignal(false);
+
+  // Block & Report state
+  const [showMenu, setShowMenu] = createSignal(false);
+  const [showReportSheet, setShowReportSheet] = createSignal(false);
+  const [reportReason, setReportReason] = createSignal("");
+  const [reportDescription, setReportDescription] = createSignal("");
+  const [submittingReport, setSubmittingReport] = createSignal(false);
 
   const isMatched = () => hasSentWave() && hasReceivedWave();
 
@@ -77,11 +87,67 @@ const UserProfilePage: Component = () => {
   };
 
   const handleWaveClick = () => {
-    if (isMatched()) {
+    if (hasSentWave()) {
       navigate(`/chat?with=${params.id}`);
-    } else if (!hasSentWave()) {
+    } else {
       wave();
     }
+  };
+
+  const blockUser = async () => {
+    const me = myProfile();
+    if (!me) return;
+
+    setBlockedIds((prev) => {
+      const next = new Set(prev);
+      next.add(params.id);
+      return next;
+    });
+    setShowMenu(false);
+
+    const { error } = await supabase.from("blocks").insert({
+      user_id: me.id,
+      blocked_user_id: params.id,
+    });
+
+    if (error) {
+      setBlockedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(params.id);
+        return next;
+      });
+      showToast("Failed to block user");
+      return;
+    }
+
+    showToast("User blocked", "success");
+    navigate(-1 as any);
+  };
+
+  const submitReport = async () => {
+    const me = myProfile();
+    if (!me || !reportReason()) return;
+
+    setSubmittingReport(true);
+
+    const { error } = await supabase.from("reports").insert({
+      reporter_id: me.id,
+      reported_user_id: params.id,
+      reason: reportReason(),
+      description: reportDescription() || null,
+    });
+
+    setSubmittingReport(false);
+
+    if (error) {
+      showToast("Failed to submit report");
+      return;
+    }
+
+    showToast("Report submitted. Thanks for keeping Friendly safe.", "success");
+    setShowReportSheet(false);
+    setReportReason("");
+    setReportDescription("");
   };
 
   const getInitials = (name: string) =>
@@ -89,7 +155,7 @@ const UserProfilePage: Component = () => {
 
   return (
     <>
-      {/* Header with back button */}
+      {/* Header with back button + menu */}
       <div class="convo-header">
         <button class="convo-back" onClick={() => navigate(-1 as any)}>
           <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
@@ -97,6 +163,12 @@ const UserProfilePage: Component = () => {
           </svg>
         </button>
         <span class="convo-name">Profile</span>
+        <div style="flex:1" />
+        <button class="profile-menu-btn" onClick={() => setShowMenu(true)}>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+          </svg>
+        </button>
       </div>
 
       <Show when={!loading()} fallback={
@@ -191,21 +263,97 @@ const UserProfilePage: Component = () => {
                   </div>
                 </Show>
 
-                {/* Wave / Match button */}
+                {/* Wave / Message button */}
                 <button
-                  class={`user-profile-wave-btn${isMatched() ? " matched" : hasSentWave() ? " waved" : ""}`}
+                  class={`user-profile-wave-btn${hasSentWave() ? " messaged" : ""}`}
                   onClick={handleWaveClick}
-                  disabled={waving() || (hasSentWave() && !isMatched())}
+                  disabled={waving()}
                 >
-                  <Show when={!hasSentWave() && !isMatched()}>
+                  <Show when={!hasSentWave()}>
                     <WaveIcon />
                   </Show>
-                  {isMatched() ? "Matched — Message" : hasSentWave() ? "Waved ✓" : "Wave"}
+                  <Show when={hasSentWave()}>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                      <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
+                    </svg>
+                  </Show>
+                  {hasSentWave() ? "Message" : "Wave"}
                 </button>
               </div>
             )}
           </Show>
         </Show>
+      </Show>
+
+      {/* Action Menu Sheet */}
+      <Show when={showMenu()}>
+        <div class="modal-overlay" onClick={() => setShowMenu(false)}>
+          <div class="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+            <div
+              class="action-sheet-option"
+              onClick={() => { setShowMenu(false); setShowReportSheet(true); }}
+            >
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z" />
+              </svg>
+              Report
+            </div>
+            <div class="action-sheet-option danger" onClick={blockUser}>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9A7.902 7.902 0 014 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1A7.902 7.902 0 0120 12c0 4.42-3.58 8-8 8z" />
+              </svg>
+              Block
+            </div>
+          </div>
+        </div>
+      </Show>
+
+      {/* Report Sheet */}
+      <Show when={showReportSheet()}>
+        <div class="modal-overlay" onClick={() => setShowReportSheet(false)}>
+          <div class="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+            <h2>Report User</h2>
+            <p style="font-size:14px;color:var(--text-secondary);margin-bottom:14px">
+              Why are you reporting this person?
+            </p>
+            <div class="report-reasons">
+              <For each={REPORT_REASONS}>
+                {(reason) => (
+                  <button
+                    class={`report-reason-chip${reportReason() === reason ? " selected" : ""}`}
+                    onClick={() => setReportReason(reason)}
+                  >
+                    {reason}
+                  </button>
+                )}
+              </For>
+            </div>
+            <div class="sheet-field">
+              <label>Details (optional)</label>
+              <textarea
+                placeholder="Tell us more..."
+                value={reportDescription()}
+                onInput={(e) => setReportDescription(e.currentTarget.value)}
+                rows={3}
+              />
+            </div>
+            <div class="sheet-actions">
+              <button
+                class="sheet-btn sheet-btn-cancel"
+                onClick={() => setShowReportSheet(false)}
+              >
+                Cancel
+              </button>
+              <button
+                class="sheet-btn sheet-btn-submit"
+                onClick={submitReport}
+                disabled={!reportReason() || submittingReport()}
+              >
+                {submittingReport() ? "Submitting..." : "Submit Report"}
+              </button>
+            </div>
+          </div>
+        </div>
       </Show>
     </>
   );
