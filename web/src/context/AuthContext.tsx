@@ -8,6 +8,7 @@ import {
   type Accessor,
 } from "solid-js";
 import { supabase } from "../lib/supabase";
+import { clearPushToken } from "../lib/push-notifications";
 import type { Session, User } from "@supabase/supabase-js";
 
 export interface UserProfile {
@@ -36,6 +37,7 @@ interface AuthContextValue {
   profile: Accessor<UserProfile | null>;
   loading: Accessor<boolean>;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
   signUpWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -92,6 +94,13 @@ export const AuthProvider: ParentComponent = (props) => {
     });
   };
 
+  const signInWithApple = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "apple",
+      options: { redirectTo: window.location.origin },
+    });
+  };
+
   const signInWithEmail = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error?.message ?? null };
@@ -107,6 +116,10 @@ export const AuthProvider: ParentComponent = (props) => {
   };
 
   const signOut = async () => {
+    const s = session();
+    if (s?.user) {
+      await clearPushToken(s.user.id);
+    }
     try {
       await supabase.auth.signOut();
     } catch (_) {
@@ -133,6 +146,7 @@ export const AuthProvider: ParentComponent = (props) => {
         profile,
         loading,
         signInWithGoogle,
+        signInWithApple,
         signInWithEmail,
         signUpWithEmail,
         signOut,

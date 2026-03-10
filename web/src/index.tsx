@@ -1,5 +1,5 @@
 /* @refresh reload */
-console.log("[Friendly] Build v3 — 2026-03-08");
+console.log("[Friendly] Build v4 — 2026-03-10");
 import { render } from "solid-js/web";
 import { Router, Route } from "@solidjs/router";
 import { AuthProvider } from "./context/AuthContext";
@@ -13,6 +13,8 @@ import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import UserProfile from "./pages/UserProfile";
 import Waves from "./pages/Waves";
+import Circles from "./pages/Circles";
+import Verify from "./pages/Verify";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import NotFound from "./pages/NotFound";
@@ -31,8 +33,10 @@ render(
             <Route path="/" component={Home} />
             <Route path="/events" component={Events} />
             <Route path="/waves" component={Waves} />
+            <Route path="/circles" component={Circles} />
             <Route path="/chat" component={Chat} />
             <Route path="/profile" component={Profile} />
+            <Route path="/verify" component={Verify} />
             <Route path="/user/:id" component={UserProfile} />
           </Route>
           <Route path="*" component={NotFound} />
