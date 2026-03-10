@@ -739,7 +739,7 @@ const Chat: Component = () => {
         {/* Chat List */}
         <div class="nav-header">
           <div style="display:flex;align-items:center;gap:10px">
-            <img src="/icon.png" class="nav-logo" alt="Friendly" />
+            <div class="nav-logo"><img src="/icon.png" alt="Friendly" /></div>
             <h1>Chat</h1>
           </div>
           <div

@@ -192,19 +192,31 @@ const Events: Component = () => {
     }
 
     // Auto-RSVP
+    const eventId = (newEvent as any).id;
     if (newEvent) {
       await supabase.from("event_rsvps").insert({
-        event_id: (newEvent as any).id,
+        event_id: eventId,
         user_id: myId,
       });
-      setMyRsvps((prev) => new Set(prev).add((newEvent as any).id));
+      setMyRsvps((prev) => new Set(prev).add(eventId));
+    }
+
+    // Create a group chat for this event so attendees can coordinate
+    try {
+      await supabase.from("conversations").insert({
+        type: "group",
+        participants: [myId],
+        group_name: suggestion.title,
+      });
+    } catch {
+      // Non-critical — event still created even if chat fails
     }
 
     // Remove from suggestions
     setSuggested((prev) => prev.filter((s) => s.id !== suggestion.id));
     setJoiningSuggested(null);
 
-    showToast("You're in! Event created.", "success");
+    showToast("You're in! Check Chat for the event group.", "success");
     await fetchEvents();
   };
 
@@ -486,7 +498,7 @@ const Events: Component = () => {
     <>
       <div class="nav-header">
         <div style="display:flex;align-items:center;gap:10px">
-          <img src="/icon.png" class="nav-logo" alt="Friendly" />
+          <div class="nav-logo"><img src="/icon.png" alt="Friendly" /></div>
           <h1>Events</h1>
         </div>
         <div
@@ -507,7 +519,7 @@ const Events: Component = () => {
         <Show when={suggested().length > 0}>
           <div class="suggested-section">
             <div class="suggested-header">
-              <img src="/icon.png" alt="Friendly" class="suggested-logo" />
+              <div class="suggested-logo"><img src="/icon.png" alt="Friendly" /></div>
               <span>Suggested for You</span>
             </div>
             <div class="suggested-scroll">
@@ -515,7 +527,7 @@ const Events: Component = () => {
                 {(s) => (
                   <div class="suggested-card">
                     <div class="suggested-card-badge">
-                      <img src="/icon.png" alt="" class="suggested-badge-icon" />
+                      <div class="suggested-badge-icon"><img src="/icon.png" alt="" /></div>
                       Friendly
                     </div>
                     <div class="suggested-card-title">{s.title}</div>
