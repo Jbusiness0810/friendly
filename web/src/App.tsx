@@ -7,6 +7,7 @@ import { hasUnread } from "./lib/unread";
 import { hasNewWaves } from "./lib/waves-unread";
 import { setBlockedIds } from "./lib/blocked";
 import { initNativePlugins } from "./lib/capacitor";
+import { requestGeolocation, saveCoordinates, setMyCoords } from "./lib/geolocation";
 
 const App: ParentComponent = (props) => {
   const { session, profile, loading } = useAuth();
@@ -28,6 +29,8 @@ const App: ParentComponent = (props) => {
   onMount(async () => {
     const p = profile();
     if (!p) return;
+
+    // Fetch blocked users
     const { data } = await supabase
       .from("blocks")
       .select("blocked_user_id")
@@ -35,6 +38,14 @@ const App: ParentComponent = (props) => {
     if (data) {
       setBlockedIds(new Set(data.map((b: any) => b.blocked_user_id)));
     }
+
+    // Load cached coordinates from profile, then request fresh ones
+    if (p.latitude && p.longitude) {
+      setMyCoords({ latitude: p.latitude, longitude: p.longitude });
+    }
+    requestGeolocation().then((coords) => {
+      if (coords) saveCoordinates(p.id, coords);
+    });
   });
 
   return (

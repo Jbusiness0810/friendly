@@ -24,6 +24,8 @@ export interface UserProfile {
   ideal_hangouts: string[];
   political_alignment: string | null;
   gender: string | null;
+  latitude: number | null;
+  longitude: number | null;
   verified: boolean;
   created_at: string;
 }

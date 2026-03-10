@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabase";
 import { showToast } from "../lib/toast";
 import { blockedIds } from "../lib/blocked";
 import { setHasNewWaves } from "../lib/waves-unread";
+import { myCoords, distanceMiles, formatDistance } from "../lib/geolocation";
 
 interface WaveWithUser {
   waveId: string;
@@ -162,8 +163,24 @@ const Waves: Component = () => {
                       </Show>
                     </div>
                     <div class="wave-info">
-                      <div class="wave-name">{item.user.name}</div>
-                      <div class="wave-location">{item.user.location ?? "Nearby"}</div>
+                      <div class="wave-name">
+                        {item.user.name}
+                        <Show when={(item.user as any).gender && (item.user as any).gender !== "Prefer not to say"}>
+                          <span class="wave-gender"> · {(item.user as any).gender}</span>
+                        </Show>
+                      </div>
+                      <div class="wave-location">
+                        {item.user.location ?? "Nearby"}
+                        <Show when={myCoords() && (item.user as any).latitude && (item.user as any).longitude}>
+                          {" · "}
+                          {formatDistance(
+                            distanceMiles(
+                              myCoords()!.latitude, myCoords()!.longitude,
+                              (item.user as any).latitude, (item.user as any).longitude
+                            )
+                          )}
+                        </Show>
+                      </div>
                     </div>
                     <div class="wave-time">{formatTimeAgo(item.createdAt)}</div>
                     <button
@@ -189,8 +206,24 @@ const Waves: Component = () => {
                       </Show>
                     </div>
                     <div class="wave-info">
-                      <div class="wave-name">{item.user.name}</div>
-                      <div class="wave-location">{item.user.location ?? "Nearby"}</div>
+                      <div class="wave-name">
+                        {item.user.name}
+                        <Show when={(item.user as any).gender && (item.user as any).gender !== "Prefer not to say"}>
+                          <span class="wave-gender"> · {(item.user as any).gender}</span>
+                        </Show>
+                      </div>
+                      <div class="wave-location">
+                        {item.user.location ?? "Nearby"}
+                        <Show when={myCoords() && (item.user as any).latitude && (item.user as any).longitude}>
+                          {" · "}
+                          {formatDistance(
+                            distanceMiles(
+                              myCoords()!.latitude, myCoords()!.longitude,
+                              (item.user as any).latitude, (item.user as any).longitude
+                            )
+                          )}
+                        </Show>
+                      </div>
                     </div>
                     <button
                       class="wave-action-btn wave-action-message"

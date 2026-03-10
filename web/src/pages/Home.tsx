@@ -6,6 +6,7 @@ import { rankUsersByCompatibility } from "../lib/matching";
 import { useNavigate } from "@solidjs/router";
 import { showToast } from "../lib/toast";
 import { blockedIds } from "../lib/blocked";
+import { myCoords, distanceMiles, formatDistance } from "../lib/geolocation";
 
 const INTEREST_OPTIONS = [
   "Lifting", "Running", "Cooking", "Gaming", "Music", "Hiking",
@@ -173,7 +174,7 @@ const Home: Component = () => {
             <h1>Discover</h1>
           </div>
           <div class="neighborhood-tag">
-            {profile()?.location ?? "Nearby"} · {filteredPeople().length} people nearby
+            {profile()?.location ?? "Nearby"} · {filteredPeople().length} people
           </div>
         </div>
       </div>
@@ -269,7 +270,22 @@ const Home: Component = () => {
                       </Show>
                     </div>
 
-                    <div class="discover-location">{person.location ?? "Nearby"}</div>
+                    <Show when={person.gender && person.gender !== "Prefer not to say"}>
+                      <div class="discover-gender">{person.gender}</div>
+                    </Show>
+
+                    <div class="discover-location">
+                      {person.location ?? "Nearby"}
+                      <Show when={myCoords() && person.latitude && person.longitude}>
+                        {" · "}
+                        {formatDistance(
+                          distanceMiles(
+                            myCoords()!.latitude, myCoords()!.longitude,
+                            person.latitude!, person.longitude!
+                          )
+                        )}
+                      </Show>
+                    </div>
 
                     <Show when={person.bio}>
                       <div class="discover-bio">{person.bio}</div>

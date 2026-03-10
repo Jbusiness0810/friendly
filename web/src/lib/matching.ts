@@ -1,4 +1,5 @@
 import type { UserProfile } from "../context/AuthContext";
+import { myCoords, distanceMiles } from "./geolocation";
 
 /**
  * Calculate a compatibility score between two users based on their onboarding preferences.
@@ -112,11 +113,26 @@ export function rankUsersByCompatibility(
   me: UserProfile,
   candidates: UserProfile[]
 ): Array<UserProfile & { compatibilityScore: number }> {
+  const coords = myCoords();
+
   return candidates
     .filter((c) => c.id !== me.id) // Exclude self
-    .map((candidate) => ({
-      ...candidate,
-      compatibilityScore: calculateCompatibility(me, candidate),
-    }))
+    .map((candidate) => {
+      let score = calculateCompatibility(me, candidate);
+
+      // Proximity boost: up to 10 bonus points for nearby users
+      if (coords && candidate.latitude && candidate.longitude) {
+        const dist = distanceMiles(
+          coords.latitude,
+          coords.longitude,
+          candidate.latitude,
+          candidate.longitude
+        );
+        // 0 mi → +10, 5 mi → +5, 10+ mi → +0
+        score += Math.round(Math.max(0, 10 - dist));
+      }
+
+      return { ...candidate, compatibilityScore: score };
+    })
     .sort((a, b) => b.compatibilityScore - a.compatibilityScore);
 }

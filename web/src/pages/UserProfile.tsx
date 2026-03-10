@@ -5,6 +5,7 @@ import type { UserProfile as UserProfileType } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import { showToast } from "../lib/toast";
 import { blockedIds, setBlockedIds } from "../lib/blocked";
+import { myCoords, distanceMiles, formatDistance } from "../lib/geolocation";
 
 const REPORT_REASONS = ["Spam", "Inappropriate content", "Harassment", "Other"];
 
@@ -212,6 +213,16 @@ const UserProfilePage: Component = () => {
                   </Show>
                   <Show when={p().location}>
                     <div class="profile-location">{p().location}</div>
+                  </Show>
+                  <Show when={myCoords() && (p() as any).latitude && (p() as any).longitude}>
+                    <div class="profile-distance">
+                      {formatDistance(
+                        distanceMiles(
+                          myCoords()!.latitude, myCoords()!.longitude,
+                          (p() as any).latitude, (p() as any).longitude
+                        )
+                      )} away
+                    </div>
                   </Show>
                 </div>
 
