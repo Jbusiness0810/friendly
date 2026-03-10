@@ -62,17 +62,12 @@ export const AuthProvider: ParentComponent = (props) => {
   };
 
   onMount(async () => {
-    // Get initial session
-    const {
-      data: { session: initialSession },
-    } = await supabase.auth.getSession();
-    setSession(initialSession);
-    if (initialSession?.user) {
-      await fetchProfile(initialSession.user.id);
-    }
-    setLoading(false);
+    // Check if we're returning from an OAuth redirect
+    const hasOAuthParams =
+      window.location.hash.includes("access_token") ||
+      window.location.search.includes("code=");
 
-    // Listen for auth changes (login, logout, token refresh)
+    // Set up auth listener FIRST so we catch the OAuth exchange
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
@@ -82,9 +77,33 @@ export const AuthProvider: ParentComponent = (props) => {
       } else {
         setProfile(null);
       }
+      // If we were waiting for an OAuth callback, mark loading done here
+      if (hasOAuthParams && loading()) {
+        setLoading(false);
+      }
     });
 
     onCleanup(() => subscription.unsubscribe());
+
+    // Get initial session
+    const {
+      data: { session: initialSession },
+    } = await supabase.auth.getSession();
+    setSession(initialSession);
+    if (initialSession?.user) {
+      await fetchProfile(initialSession.user.id);
+    }
+
+    // Only clear loading immediately if there are no OAuth params to wait for
+    // (or if we already got a session from getSession)
+    if (!hasOAuthParams || initialSession) {
+      setLoading(false);
+    } else {
+      // Safety timeout: don't stay stuck loading if OAuth exchange fails
+      setTimeout(() => {
+        if (loading()) setLoading(false);
+      }, 5000);
+    }
   });
 
   const signInWithGoogle = async () => {
