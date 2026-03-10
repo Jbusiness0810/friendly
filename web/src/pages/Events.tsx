@@ -120,29 +120,11 @@ const Events: Component = () => {
   });
 
   const fetchEvents = async () => {
-    const myId = user()?.id;
-
-    // Try RPC for visibility-filtered events, fall back to direct query
-    let eventIds: string[] | null = null;
-    if (myId) {
-      const { data: visible, error: rpcErr } = await supabase.rpc("get_visible_events", { my_id: myId });
-      if (!rpcErr && visible) {
-        eventIds = visible.map((e: any) => e.id);
-      }
-      // Silently ignore RPC errors (function may not exist if migration not run)
-    }
-
-    let query = supabase
+    const { data, error } = await supabase
       .from("events")
       .select("*, event_rsvps(count)")
       .order("date", { ascending: true })
       .gte("date", new Date().toISOString());
-
-    if (eventIds) {
-      query = query.in("id", eventIds);
-    }
-
-    const { data, error } = await query;
 
     if (error) {
       showToast("Failed to load events");
@@ -208,20 +190,36 @@ const Events: Component = () => {
 
     // Create a group chat for this event so attendees can coordinate
     // Try with group_name first; if column doesn't exist (migration not run), retry without
-    const { error: chatError } = await supabase.from("conversations").insert({
-      type: "group",
-      participants: [myId],
-      group_name: suggestion.title,
-    });
-    if (chatError) {
-      console.warn("Group chat with group_name failed, retrying without:", chatError.message);
-      const { error: chatError2 } = await supabase.from("conversations").insert({
+    const { data: chatData, error: chatError } = await supabase
+      .from("conversations")
+      .insert({
         type: "group",
         participants: [myId],
-      });
+        group_name: suggestion.title,
+      })
+      .select()
+      .single();
+
+    if (chatError) {
+      console.warn("Group chat with group_name failed:", chatError.message, chatError.code, chatError.details);
+      // Retry without group_name in case column doesn't exist
+      const { data: chatData2, error: chatError2 } = await supabase
+        .from("conversations")
+        .insert({
+          type: "group",
+          participants: [myId],
+        })
+        .select()
+        .single();
+
       if (chatError2) {
-        console.error("Failed to create event group chat:", chatError2);
+        console.error("Failed to create event group chat:", chatError2.message, chatError2.code, chatError2.details);
+        showToast(`Group chat failed: ${chatError2.message}`);
+      } else {
+        console.log("Group chat created (without name):", chatData2);
       }
+    } else {
+      console.log("Group chat created:", chatData);
     }
 
     // Remove from suggestions
