@@ -33,6 +33,8 @@ const Profile: Component = () => {
   const [saving, setSaving] = createSignal(false);
   const [showAbout, setShowAbout] = createSignal(false);
   const [uploadingAvatar, setUploadingAvatar] = createSignal(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = createSignal(false);
+  const [deleting, setDeleting] = createSignal(false);
 
   let fileInputRef: HTMLInputElement | undefined;
 
@@ -144,6 +146,37 @@ const Profile: Component = () => {
       setList(current.filter((v2) => v2 !== value));
     } else {
       setList([...current, value]);
+    }
+  };
+
+  const deleteAccount = async () => {
+    const p = profile();
+    if (!p) return;
+    setDeleting(true);
+
+    try {
+      // Try RPC first (if migration was run)
+      const { error: rpcErr } = await supabase.rpc("delete_my_account");
+      if (rpcErr) {
+        // Fallback: delete user row directly
+        const { error: delErr } = await supabase
+          .from("users")
+          .delete()
+          .eq("id", p.id);
+        if (delErr) {
+          showToast("Failed to delete account");
+          setDeleting(false);
+          return;
+        }
+      }
+
+      // Sign out after deletion
+      setShowDeleteConfirm(false);
+      showToast("Account deleted", "success");
+      await signOut();
+    } catch {
+      showToast("Failed to delete account");
+      setDeleting(false);
     }
   };
 
@@ -463,6 +496,7 @@ const Profile: Component = () => {
                   <div class="settings-item" onClick={startEditing}>Edit Profile <span class="chevron">›</span></div>
                   <div class="settings-item" onClick={() => setShowAbout(true)}>About Friendly <span class="chevron">›</span></div>
                   <div class="settings-item danger" onClick={signOut}>Sign Out</div>
+                  <div class="settings-item danger" onClick={() => setShowDeleteConfirm(true)}>Delete Account</div>
                 </div>
 
                 <Show when={showAbout()}>
@@ -476,6 +510,30 @@ const Profile: Component = () => {
                       <p style="color:var(--text-secondary);font-size:13px">Version 1.0.0</p>
                       <div class="sheet-actions">
                         <button class="sheet-btn sheet-btn-cancel" onClick={() => setShowAbout(false)}>Close</button>
+                      </div>
+                    </div>
+                  </div>
+                </Show>
+
+                <Show when={showDeleteConfirm()}>
+                  <div class="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
+                    <div class="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+                      <h2 style="color:var(--danger, #ff3b30)">Delete Account</h2>
+                      <p style="color:var(--text-secondary);font-size:14px;line-height:1.5;margin-bottom:16px">
+                        This will permanently delete your account, messages, and all associated data. This action cannot be undone.
+                      </p>
+                      <div class="sheet-actions">
+                        <button class="sheet-btn sheet-btn-cancel" onClick={() => setShowDeleteConfirm(false)}>
+                          Cancel
+                        </button>
+                        <button
+                          class="sheet-btn"
+                          style="background:var(--danger, #ff3b30);color:white"
+                          onClick={deleteAccount}
+                          disabled={deleting()}
+                        >
+                          {deleting() ? "Deleting..." : "Delete Forever"}
+                        </button>
                       </div>
                     </div>
                   </div>

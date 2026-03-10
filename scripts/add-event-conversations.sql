@@ -3,8 +3,9 @@
 -- Run this in Supabase SQL Editor (https://supabase.com/dashboard)
 -- =============================================================
 
--- 1. Add group_name to conversations (for display in Chat)
+-- 1. Add group_name and group_avatar to conversations (for display in Chat)
 ALTER TABLE public.conversations ADD COLUMN IF NOT EXISTS group_name text;
+ALTER TABLE public.conversations ADD COLUMN IF NOT EXISTS group_avatar text;
 
 -- 2. Create event_conversations linking table
 --    Links each event to its group chat conversation

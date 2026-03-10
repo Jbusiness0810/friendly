@@ -6,6 +6,7 @@ import { toasts } from "./lib/toast";
 import { hasUnread } from "./lib/unread";
 import { hasNewWaves } from "./lib/waves-unread";
 import { setBlockedIds } from "./lib/blocked";
+import { initNativePlugins } from "./lib/capacitor";
 
 const App: ParentComponent = (props) => {
   const { session, profile, loading } = useAuth();
@@ -21,7 +22,9 @@ const App: ParentComponent = (props) => {
     }
   });
 
-  // Fetch blocked users on mount
+  // Initialize native plugins (Capacitor) + fetch blocked users
+  onMount(() => { initNativePlugins(); });
+
   onMount(async () => {
     const p = profile();
     if (!p) return;
