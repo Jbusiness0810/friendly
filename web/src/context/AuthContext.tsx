@@ -54,16 +54,23 @@ export const AuthProvider: ParentComponent = (props) => {
 
   const fetchProfile = async (userId: string) => {
     console.log("[Auth] fetchProfile for:", userId);
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
-    console.log("[Auth] fetchProfile result:", { hasData: !!data, error: error?.message });
-    if (error) {
-      console.error("[Auth] fetchProfile error:", error);
+    try {
+      const result = await Promise.race([
+        supabase.from("users").select("*").eq("id", userId).maybeSingle(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("fetchProfile timed out after 8s")), 8000)
+        ),
+      ]);
+      const { data, error } = result;
+      console.log("[Auth] fetchProfile result:", { hasData: !!data, error: error?.message });
+      if (error) {
+        console.error("[Auth] fetchProfile error:", error);
+      }
+      setProfile(data as UserProfile | null);
+    } catch (err) {
+      console.error("[Auth] fetchProfile threw:", err);
+      setProfile(null);
     }
-    setProfile(data as UserProfile | null);
   };
 
   onMount(async () => {
