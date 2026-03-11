@@ -119,9 +119,32 @@ const Home: Component = () => {
 
   const isFiltering = () => searchQuery() !== "" || selectedInterests().size > 0;
 
+  const MAX_WAVES_PER_DAY = 25;
+
+  const getWavesToday = (): number => {
+    try {
+      const stored = localStorage.getItem("friendly-waves-today");
+      if (!stored) return 0;
+      const { count, date } = JSON.parse(stored);
+      if (date !== new Date().toISOString().split("T")[0]) return 0;
+      return count;
+    } catch { return 0; }
+  };
+
+  const incrementWavesToday = () => {
+    const today = new Date().toISOString().split("T")[0];
+    const current = getWavesToday();
+    localStorage.setItem("friendly-waves-today", JSON.stringify({ count: current + 1, date: today }));
+  };
+
   const wave = async (personId: string) => {
     const myProfile = profile();
     if (!myProfile) return;
+
+    if (getWavesToday() >= MAX_WAVES_PER_DAY) {
+      showToast("You've reached the daily wave limit. Try again tomorrow!");
+      return;
+    }
 
     setSentWaves((prev) => new Set(prev).add(personId));
 
@@ -137,6 +160,8 @@ const Home: Component = () => {
         return next;
       });
       showToast("Failed to send wave");
+    } else {
+      incrementWavesToday();
     }
   };
 
@@ -229,8 +254,19 @@ const Home: Component = () => {
         </div>
       }>
         <Show when={filteredPeople().length > 0} fallback={
-          <div style="text-align:center;padding:3rem;color:var(--text-secondary)">
-            {isFiltering() ? "No one matches your filters" : "No one nearby yet"}
+          <div class="empty-state-rich">
+            <Show when={isFiltering()} fallback={
+              <>
+                <div class="empty-state-icon">
+                  <img src="/wave-hand.png" alt="" style="width:48px;height:48px" />
+                </div>
+                <div class="empty-state-title">No one nearby yet</div>
+                <div class="empty-state-sub">Be the first in your area! Share Friendly with friends to get started.</div>
+              </>
+            }>
+              <div class="empty-state-title">No one matches your filters</div>
+              <div class="empty-state-sub">Try adjusting your search or clearing filters.</div>
+            </Show>
           </div>
         }>
           <div class="discover-feed">

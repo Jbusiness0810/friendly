@@ -872,8 +872,14 @@ const Chat: Component = () => {
           <Show
             when={filteredRows().length > 0}
             fallback={
-              <div class="empty-state">
-                No conversations yet. Wave at someone on Discover!
+              <div class="empty-state-rich">
+                <div class="empty-state-icon">
+                  <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" style="opacity:0.3">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
+                  </svg>
+                </div>
+                <div class="empty-state-title">No conversations yet</div>
+                <div class="empty-state-sub">Wave at someone on Discover to start chatting!</div>
               </div>
             }
           >

@@ -653,8 +653,14 @@ const Events: Component = () => {
         </Show>
 
         <Show when={events().length > 0} fallback={
-          <div class="empty-state">
-            No upcoming events.<br />Create one!
+          <div class="empty-state-rich">
+            <div class="empty-state-icon">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" style="opacity:0.3">
+                <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z" />
+              </svg>
+            </div>
+            <div class="empty-state-title">No upcoming events</div>
+            <div class="empty-state-sub">Create an event and invite people to hang out!</div>
           </div>
         }>
           <div>

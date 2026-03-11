@@ -147,8 +147,12 @@ const Waves: Component = () => {
         </div>
       }>
         <Show when={incomingWaves().length > 0} fallback={
-          <div class="empty-state">
-            No waves yet. People who wave at you will show up here.
+          <div class="empty-state-rich">
+            <div class="empty-state-icon">
+              <img src="/wave-hand.png" alt="" style="width:48px;height:48px" />
+            </div>
+            <div class="empty-state-title">No waves yet</div>
+            <div class="empty-state-sub">When someone waves at you, they'll show up here. Complete your profile to get noticed!</div>
           </div>
         }>
           <div class="waves-page">
