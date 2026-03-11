@@ -1060,8 +1060,13 @@ body {
 .onboarding-done {
     padding: 16px 24px 40px;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
     flex-shrink: 0;
+    gap: 10px;
+    border-top: 0.5px solid var(--border);
+    background: var(--bg);
+    animation: slideUp 0.3s ease;
 }
 
 /* Typing indicator */
@@ -1657,8 +1662,24 @@ body {
     font-weight: 500;
 }
 
+.onboarding-location-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+.onboarding-location-row .onboarding-text-input {
+    flex: 1;
+    min-width: 0;
+}
+.onboarding-done .landing-cta {
+    width: 100%;
+}
+
 /* Detect location button (onboarding) */
 .detect-location-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
     background: none;
     border: none;
     color: var(--primary);
