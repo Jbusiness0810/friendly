@@ -14,13 +14,15 @@ const App: ParentComponent = (props) => {
   const { session, profile, loading } = useAuth();
   const navigate = useNavigate();
 
-  // Auth guard: redirect unauthenticated or un-onboarded users
+  // Auth guard: redirect unauthenticated, un-onboarded, or unverified users
   createEffect(() => {
     if (loading()) return;
     if (!session()) {
       navigate("/landing", { replace: true });
     } else if (!profile()) {
       navigate("/onboarding", { replace: true });
+    } else if (!profile()!.verified) {
+      navigate("/verify", { replace: true });
     }
   });
 

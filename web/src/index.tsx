@@ -30,6 +30,7 @@ render(
           <Route path="/terms" component={Terms} />
           <Route path="/privacy" component={Privacy} />
           <Route path="/onboarding" component={Onboarding} />
+          <Route path="/verify" component={Verify} />
           <Route path="/" component={App}>
             <Route path="/" component={Home} />
             <Route path="/events" component={Events} />
@@ -37,7 +38,6 @@ render(
             <Route path="/circles" component={Circles} />
             <Route path="/chat" component={Chat} />
             <Route path="/profile" component={Profile} />
-            <Route path="/verify" component={Verify} />
             <Route path="/user/:id" component={UserProfile} />
           </Route>
           <Route path="*" component={NotFound} />
