@@ -88,16 +88,20 @@ export const AuthProvider: ParentComponent = (props) => {
   });
 
   const signInWithGoogle = async () => {
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    console.log("[Auth] Google sign-in redirectTo:", redirectTo);
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo },
     });
   };
 
   const signInWithApple = async () => {
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    console.log("[Auth] Apple sign-in redirectTo:", redirectTo);
     await supabase.auth.signInWithOAuth({
       provider: "apple",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo },
     });
   };
 
