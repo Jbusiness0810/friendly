@@ -62,12 +62,6 @@ export const AuthProvider: ParentComponent = (props) => {
   };
 
   onMount(async () => {
-    // Check if we're returning from an OAuth redirect
-    const hasOAuthParams =
-      window.location.hash.includes("access_token") ||
-      window.location.search.includes("code=");
-
-    // Set up auth listener FIRST so we catch the OAuth exchange
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
@@ -76,10 +70,6 @@ export const AuthProvider: ParentComponent = (props) => {
         await fetchProfile(newSession.user.id);
       } else {
         setProfile(null);
-      }
-      // If we were waiting for an OAuth callback, mark loading done here
-      if (hasOAuthParams && loading()) {
-        setLoading(false);
       }
     });
 
@@ -94,29 +84,20 @@ export const AuthProvider: ParentComponent = (props) => {
       await fetchProfile(initialSession.user.id);
     }
 
-    // Only clear loading immediately if there are no OAuth params to wait for
-    // (or if we already got a session from getSession)
-    if (!hasOAuthParams || initialSession) {
-      setLoading(false);
-    } else {
-      // Safety timeout: don't stay stuck loading if OAuth exchange fails
-      setTimeout(() => {
-        if (loading()) setLoading(false);
-      }, 5000);
-    }
+    setLoading(false);
   });
 
   const signInWithGoogle = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
   };
 
   const signInWithApple = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "apple",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
   };
 

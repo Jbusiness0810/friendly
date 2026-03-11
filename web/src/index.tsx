@@ -17,6 +17,7 @@ import Circles from "./pages/Circles";
 import Verify from "./pages/Verify";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
+import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 import "./index.css";
 
@@ -25,6 +26,7 @@ render(
     <ThemeProvider>
       <AuthProvider>
         <Router>
+          <Route path="/auth/callback" component={AuthCallback} />
           <Route path="/landing" component={Landing} />
           <Route path="/terms" component={Terms} />
           <Route path="/privacy" component={Privacy} />
