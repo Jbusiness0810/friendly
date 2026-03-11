@@ -54,16 +54,25 @@ export const AuthProvider: ParentComponent = (props) => {
 
   const fetchProfile = async (userId: string) => {
     console.log("[Auth] fetchProfile for:", userId);
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
-    console.log("[Auth] fetchProfile result:", { hasData: !!data, error: error?.message });
-    if (error) {
-      console.error("[Auth] fetchProfile error:", error);
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle()
+        .abortSignal(controller.signal);
+      clearTimeout(timeout);
+      console.log("[Auth] fetchProfile result:", { hasData: !!data, error: error?.message });
+      if (error) {
+        console.error("[Auth] fetchProfile error:", error);
+      }
+      setProfile(data as UserProfile | null);
+    } catch (err) {
+      console.error("[Auth] fetchProfile threw:", err);
+      setProfile(null);
     }
-    setProfile(data as UserProfile | null);
   };
 
   onMount(async () => {
