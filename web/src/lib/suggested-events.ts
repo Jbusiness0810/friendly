@@ -1,5 +1,6 @@
 import type { UserProfile } from "../context/AuthContext";
 import { searchNearbyVenue } from "./google-places";
+import { supabase } from "./supabase";
 
 export interface SuggestedEvent {
   id: string;
@@ -10,6 +11,8 @@ export interface SuggestedEvent {
   timeLabel: string; // e.g. "Sat, Mar 15 · 9:00 AM"
   isFree: boolean;
   score: number;
+  source: "template" | "community"; // where this suggestion came from
+  communityEventId?: string; // if source === "community", the real event id
 }
 
 interface EventTemplate {
@@ -402,6 +405,317 @@ const TEMPLATES: EventTemplate[] = [
     preferredDay: "weekend",
     isFree: false,
   },
+
+  // ============ EXPANDED TEMPLATES ============
+
+  // ---- FITNESS / ACTIVE (new) ----
+  {
+    id: "yoga-park",
+    title: "Morning Yoga in the Park",
+    description: "Gentle flow session on the grass — bring a mat or towel. All levels welcome. We stretch, breathe, and start the day right.",
+    interests: ["Yoga", "Outdoors"],
+    hangouts: ["Gym"],
+    intent: ["Gym partner"],
+    searchQuery: "parks with open grass areas",
+    fallbackLocation: "Local park",
+    timeSlot: "morning",
+    preferredDay: "weekend",
+    isFree: true,
+  },
+  {
+    id: "pickup-soccer",
+    title: "Pickup Soccer Match",
+    description: "Casual kickabout — we split into teams and play. All skill levels, just bring cleats and water.",
+    interests: ["Soccer"],
+    hangouts: ["Sports"],
+    intent: ["Pickup sports"],
+    searchQuery: "soccer fields and parks",
+    fallbackLocation: "Local soccer fields",
+    timeSlot: "afternoon",
+    preferredDay: "weekend",
+    isFree: true,
+  },
+  {
+    id: "volleyball-beach",
+    title: "Beach Volleyball Pickup",
+    description: "Drop-in volleyball on the sand. Rotating teams, no commitments — just show up and play.",
+    interests: ["Volleyball", "Outdoors"],
+    hangouts: ["Sports"],
+    intent: ["Pickup sports", "Weekend plans"],
+    searchQuery: "beach volleyball courts",
+    fallbackLocation: "Local beach courts",
+    timeSlot: "afternoon",
+    preferredDay: "weekend",
+    isFree: true,
+  },
+  {
+    id: "bike-ride",
+    title: "Weekend Group Bike Ride",
+    description: "Chill 10-15 mile ride through the neighborhood. Moderate pace, plenty of stops. Bring your own bike and helmet.",
+    interests: ["Cycling", "Outdoors"],
+    hangouts: ["Trail"],
+    intent: ["Weekend plans", "Gym partner"],
+    searchQuery: "bike trails and cycling paths",
+    fallbackLocation: "Local bike trail",
+    timeSlot: "morning",
+    preferredDay: "weekend",
+    isFree: true,
+  },
+  {
+    id: "rock-climbing",
+    title: "Climbing Gym Session",
+    description: "Indoor bouldering and top-rope climbing. Beginners welcome — rentals available. We'll teach you the ropes (literally).",
+    interests: ["Climbing", "Lifting"],
+    hangouts: ["Gym"],
+    intent: ["Gym partner"],
+    searchQuery: "rock climbing gyms",
+    fallbackLocation: "Local climbing gym",
+    timeSlot: "evening",
+    preferredDay: "weekday",
+    isFree: false,
+  },
+  {
+    id: "tennis-doubles",
+    title: "Tennis Doubles Mixer",
+    description: "Rotating doubles matches — we'll pair you up. All skill levels welcome. Bring a racket or borrow one.",
+    interests: ["Tennis"],
+    hangouts: ["Sports"],
+    intent: ["Pickup sports"],
+    searchQuery: "public tennis courts",
+    fallbackLocation: "Local tennis courts",
+    timeSlot: "morning",
+    preferredDay: "weekend",
+    isFree: true,
+  },
+  {
+    id: "swimming-laps",
+    title: "Morning Swim Meetup",
+    description: "Lap swim or just hang in the pool. Great way to start the day and meet people who love the water.",
+    interests: ["Swimming"],
+    hangouts: ["Gym"],
+    intent: ["Gym partner"],
+    searchQuery: "public swimming pools",
+    fallbackLocation: "Community pool",
+    timeSlot: "morning",
+    preferredDay: "weekday",
+    isFree: false,
+  },
+
+  // ---- FOOD & DRINK (new) ----
+  {
+    id: "brunch-crawl",
+    title: "Sunday Brunch Crawl",
+    description: "Hit 2-3 brunch spots in the neighborhood. Mimosas, pancakes, and good vibes. Come hungry.",
+    interests: ["Cooking", "Coffee"],
+    hangouts: ["Coffee", "Bar"],
+    intent: ["Weekend plans"],
+    searchQuery: "popular brunch restaurants",
+    fallbackLocation: "Local brunch spot",
+    timeSlot: "morning",
+    preferredDay: "weekend",
+    isFree: false,
+  },
+  {
+    id: "food-truck-friday",
+    title: "Food Truck Friday",
+    description: "A different food truck lineup every week. Grab a bite, sit on the grass, and meet your neighbors.",
+    interests: ["Cooking"],
+    hangouts: [],
+    intent: ["Weekend plans"],
+    searchQuery: "food truck parks and gatherings",
+    fallbackLocation: "Local food truck park",
+    timeSlot: "evening",
+    preferredDay: "friday",
+    isFree: false,
+  },
+  {
+    id: "wine-tasting",
+    title: "Wine Tasting Evening",
+    description: "Sample 4-5 wines at a local wine bar. No expertise needed — just an open palate and good conversation.",
+    interests: [],
+    hangouts: ["Bar"],
+    intent: ["Grab a drink"],
+    searchQuery: "wine bars and tasting rooms",
+    fallbackLocation: "Local wine bar",
+    timeSlot: "evening",
+    preferredDay: "weekday",
+    isFree: false,
+  },
+  {
+    id: "cooking-class",
+    title: "Group Cooking Class",
+    description: "Learn a new recipe together and eat what you make. Perfect for foodies who want to meet people over a shared meal.",
+    interests: ["Cooking"],
+    hangouts: [],
+    intent: [],
+    searchQuery: "cooking classes",
+    fallbackLocation: "Local cooking school",
+    timeSlot: "evening",
+    preferredDay: "weekend",
+    isFree: false,
+  },
+  {
+    id: "farmers-market",
+    title: "Farmers Market Walk",
+    description: "Stroll through the market, sample local produce, and grab breakfast. Easygoing way to start the weekend.",
+    interests: ["Cooking", "Outdoors"],
+    hangouts: ["Coffee"],
+    intent: ["Weekend plans"],
+    searchQuery: "farmers markets",
+    fallbackLocation: "Local farmers market",
+    timeSlot: "morning",
+    preferredDay: "weekend",
+    isFree: true,
+  },
+
+  // ---- GAMES & ENTERTAINMENT (new) ----
+  {
+    id: "karaoke-night",
+    title: "Karaoke Night Out",
+    description: "Private room or bar stage — doesn't matter if you can sing. It's about the energy. Liquid courage provided at the bar.",
+    interests: ["Music"],
+    hangouts: ["Bar"],
+    intent: ["Grab a drink"],
+    searchQuery: "karaoke bars",
+    fallbackLocation: "Local karaoke bar",
+    timeSlot: "evening",
+    preferredDay: "friday",
+    isFree: false,
+  },
+  {
+    id: "movie-night",
+    title: "Outdoor Movie Night",
+    description: "Blankets, popcorn, and a movie under the stars. Bring a chair or blanket and something to share.",
+    interests: [],
+    hangouts: [],
+    intent: ["Weekend plans"],
+    searchQuery: "outdoor movie screenings and venues",
+    fallbackLocation: "Local park amphitheater",
+    timeSlot: "evening",
+    preferredDay: "weekend",
+    isFree: true,
+  },
+  {
+    id: "arcade-bar",
+    title: "Arcade Bar Night",
+    description: "Retro arcade games, pinball, and drinks. Challenge strangers to Street Fighter or team up for co-op. All tokens on you.",
+    interests: ["Gaming"],
+    hangouts: ["Bar", "Game night"],
+    intent: ["Grab a drink"],
+    searchQuery: "arcade bars barcade",
+    fallbackLocation: "Local arcade bar",
+    timeSlot: "evening",
+    preferredDay: "friday",
+    isFree: false,
+  },
+  {
+    id: "escape-room",
+    title: "Escape Room Challenge",
+    description: "Team up with strangers to solve puzzles and escape. Great icebreaker — nothing bonds people like shared panic.",
+    interests: ["Gaming"],
+    hangouts: ["Game night"],
+    intent: [],
+    searchQuery: "escape rooms",
+    fallbackLocation: "Local escape room",
+    timeSlot: "afternoon",
+    preferredDay: "weekend",
+    isFree: false,
+  },
+  {
+    id: "comedy-show",
+    title: "Local Comedy Show",
+    description: "Live standup at a local bar or comedy club. Grab a drink, grab a seat, and laugh with new people.",
+    interests: ["Music"],
+    hangouts: ["Bar"],
+    intent: ["Grab a drink"],
+    searchQuery: "comedy clubs and shows",
+    fallbackLocation: "Local comedy club",
+    timeSlot: "evening",
+    preferredDay: "weekend",
+    isFree: false,
+  },
+
+  // ---- CREATIVE / LEARNING (new) ----
+  {
+    id: "photography-walk",
+    title: "Photo Walk",
+    description: "Explore the neighborhood through a lens. Phone cameras welcome. We'll share our best shots at a coffee stop after.",
+    interests: ["Photography", "Outdoors"],
+    hangouts: ["Trail", "Coffee"],
+    intent: [],
+    searchQuery: "scenic walkable neighborhoods",
+    fallbackLocation: "Downtown meetup point",
+    timeSlot: "afternoon",
+    preferredDay: "weekend",
+    isFree: true,
+  },
+  {
+    id: "book-club",
+    title: "Casual Book Club Meetup",
+    description: "Didn't finish the book? That's fine. Come discuss whatever you read this month over coffee or drinks.",
+    interests: ["Reading"],
+    hangouts: ["Coffee"],
+    intent: [],
+    searchQuery: "bookstores with seating areas",
+    fallbackLocation: "Local bookstore cafe",
+    timeSlot: "evening",
+    preferredDay: "weekday",
+    isFree: false,
+  },
+  {
+    id: "art-gallery",
+    title: "Gallery Walk & Drinks",
+    description: "Explore a local gallery or art show, then grab drinks nearby. No art knowledge required — just curiosity.",
+    interests: ["Art"],
+    hangouts: [],
+    intent: [],
+    searchQuery: "art galleries",
+    fallbackLocation: "Local art gallery",
+    timeSlot: "evening",
+    preferredDay: "weekend",
+    isFree: true,
+  },
+
+  // ---- OUTDOOR / ADVENTURE (new) ----
+  {
+    id: "kayak-morning",
+    title: "Morning Kayak Session",
+    description: "Paddle out for an hour or two on calm water. Rentals available. Peaceful way to start the day with new people.",
+    interests: ["Outdoors"],
+    hangouts: [],
+    intent: ["Weekend plans"],
+    searchQuery: "kayak rental locations",
+    fallbackLocation: "Local lake or river",
+    timeSlot: "morning",
+    preferredDay: "weekend",
+    isFree: false,
+  },
+  {
+    id: "dog-park",
+    title: "Dog Park Social",
+    description: "Bring your pup and meet other dog owners. Dogs are the ultimate icebreaker. Treats and tennis balls provided.",
+    interests: ["Dogs", "Outdoors"],
+    hangouts: [],
+    intent: [],
+    searchQuery: "off-leash dog parks",
+    fallbackLocation: "Local dog park",
+    timeSlot: "afternoon",
+    preferredDay: "weekend",
+    isFree: true,
+  },
+  {
+    id: "sunset-picnic",
+    title: "Sunset Picnic in the Park",
+    description: "BYOB and a snack to share. We'll stake out a spot with a view and watch the sunset. Blankets and good vibes required.",
+    interests: ["Outdoors"],
+    hangouts: [],
+    intent: ["Weekend plans"],
+    searchQuery: "parks with sunset views",
+    fallbackLocation: "Local scenic park",
+    timeSlot: "evening",
+    preferredDay: "weekend",
+    isFree: true,
+  },
 ];
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -409,6 +723,43 @@ const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
+
+// ---- Dismissed / Seen tracking via localStorage ----
+
+const DISMISSED_KEY = "friendly_dismissed_suggestions";
+const SEEN_KEY = "friendly_seen_suggestions";
+
+function getDismissedIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DISMISSED_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+export function dismissSuggestion(id: string): void {
+  const dismissed = getDismissedIds();
+  dismissed.add(id);
+  localStorage.setItem(DISMISSED_KEY, JSON.stringify([...dismissed]));
+}
+
+function getSeenIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function markSeen(ids: string[]): void {
+  const seen = getSeenIds();
+  for (const id of ids) seen.add(id);
+  localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]));
+}
+
+// ---- Scoring with randomness ----
 
 function getTimeForSlot(slot: "morning" | "afternoon" | "evening"): { hours: number; minutes: number; label: string } {
   switch (slot) {
@@ -435,6 +786,15 @@ function scoreTemplate(user: UserProfile, template: EventTemplate): number {
     if (userIntent.has(t.toLowerCase())) score += 2;
   }
 
+  // Add weighted randomness (0 to 3 points) so suggestions rotate
+  score += Math.random() * 3;
+
+  // Penalize previously seen suggestions slightly so fresh ones surface
+  const seen = getSeenIds();
+  if (seen.has(template.id)) {
+    score -= 1.5;
+  }
+
   return score;
 }
 
@@ -458,20 +818,91 @@ function getNextDate(now: Date, baseOffset: number, preferred: "weekday" | "week
   return d;
 }
 
+// ---- Community events (user-created events surfaced as suggestions) ----
+
+async function getCommunityEvents(userId: string): Promise<SuggestedEvent[]> {
+  const now = new Date();
+
+  // Fetch upcoming public events created by OTHER users that we haven't RSVP'd to
+  const { data: events, error } = await supabase
+    .from("events")
+    .select("id, title, description, location, date, price, event_rsvps(count)")
+    .neq("creator_id", userId)
+    .gte("date", now.toISOString())
+    .order("date", { ascending: true })
+    .limit(20);
+
+  if (error || !events?.length) return [];
+
+  // Filter out events we've already RSVP'd to
+  const { data: myRsvps } = await supabase
+    .from("event_rsvps")
+    .select("event_id")
+    .eq("user_id", userId);
+
+  const rsvpSet = new Set((myRsvps ?? []).map((r: { event_id: string }) => r.event_id));
+  const dismissed = getDismissedIds();
+
+  const available = (events as any[]).filter(
+    (e) => !rsvpSet.has(e.id) && !dismissed.has(`community-${e.id}`)
+  );
+
+  // Sort by popularity (RSVP count), then take top results
+  available.sort((a, b) => {
+    const countA = a.event_rsvps?.[0]?.count ?? 0;
+    const countB = b.event_rsvps?.[0]?.count ?? 0;
+    return countB - countA;
+  });
+
+  return available.slice(0, 4).map((e) => {
+    const d = new Date(e.date);
+    const dayName = WEEKDAYS[d.getDay()];
+    const monthName = MONTHS[d.getMonth()];
+    const dayNum = d.getDate();
+    const h = d.getHours();
+    const m = d.getMinutes();
+    const ampm = h >= 12 ? "PM" : "AM";
+    const hour = h % 12 || 12;
+    const timeStr = `${hour}:${m.toString().padStart(2, "0")} ${ampm}`;
+
+    const isFree = !e.price || e.price === "0" || e.price.toLowerCase() === "free";
+
+    return {
+      id: `community-${e.id}`,
+      title: e.title,
+      description: e.description ?? "",
+      location: e.location ?? "TBD",
+      date: e.date,
+      timeLabel: `${dayName}, ${monthName} ${dayNum} · ${timeStr}`,
+      isFree,
+      score: 10 + (e.event_rsvps?.[0]?.count ?? 0), // boost community events
+      source: "community" as const,
+      communityEventId: e.id,
+    };
+  });
+}
+
 /**
  * Generate personalized event suggestions for a user based on their profile.
+ * Combines template-based suggestions with community-created events.
  * Uses Google Places API to find real venues near the user's location.
  * Returns up to 6 relevant events with realistic dates and real venue names.
  */
 export async function getSuggestedEvents(user: UserProfile): Promise<SuggestedEvent[]> {
+  const dismissed = getDismissedIds();
+
+  // Score and filter templates, excluding dismissed ones
   const scored = TEMPLATES
+    .filter((t) => !dismissed.has(t.id))
     .map((t) => ({ template: t, score: scoreTemplate(user, t) }))
     .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score);
 
-  const top = scored.slice(0, 6);
-  if (top.length === 0) return [];
+  // Fetch community events in parallel with venue lookups
+  const communityPromise = getCommunityEvents(user.id);
 
+  // Take top 4 template suggestions (leaving room for community events)
+  const top = scored.slice(0, 4);
   const now = new Date();
 
   // Build location suffix from user profile for geographic relevance
@@ -481,9 +912,12 @@ export async function getSuggestedEvents(user: UserProfile): Promise<SuggestedEv
   const venuePromises = top.map((item) =>
     searchNearbyVenue(item.template.searchQuery + locationSuffix)
   );
-  const venues = await Promise.all(venuePromises);
+  const [venues, communityEvents] = await Promise.all([
+    Promise.all(venuePromises),
+    communityPromise,
+  ]);
 
-  return top.map((item, i) => {
+  const templateSuggestions: SuggestedEvent[] = top.map((item, i) => {
     const { template, score } = item;
     const time = getTimeForSlot(template.timeSlot);
 
@@ -511,6 +945,25 @@ export async function getSuggestedEvents(user: UserProfile): Promise<SuggestedEv
       timeLabel: `${dayName}, ${monthName} ${dayNum} · ${time.label}`,
       isFree: template.isFree,
       score,
+      source: "template" as const,
     };
   });
+
+  // Merge: community events first (they're real), then templates
+  const combined = [...communityEvents, ...templateSuggestions];
+
+  // De-dup by id and cap at 6
+  const seen = new Set<string>();
+  const results: SuggestedEvent[] = [];
+  for (const s of combined) {
+    if (!seen.has(s.id) && results.length < 6) {
+      seen.add(s.id);
+      results.push(s);
+    }
+  }
+
+  // Track these as seen for future rotation
+  markSeen(results.map((r) => r.id));
+
+  return results;
 }

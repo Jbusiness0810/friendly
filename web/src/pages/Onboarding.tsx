@@ -15,9 +15,17 @@ interface Question {
   multi: boolean;
   freeOnly?: boolean;
   placeholders?: string[];
+  ageGate?: boolean;
+  photoStep?: boolean;
 }
 
 const QUESTIONS: Question[] = [
+  {
+    text: "First, what's your date of birth? You must be 18+ to use Friendly.",
+    chips: [],
+    multi: false,
+    ageGate: true,
+  },
   {
     text: "How do you identify?",
     chips: ["Man", "Woman", "Other", "Prefer not to say"],
@@ -110,9 +118,14 @@ const Onboarding: Component = () => {
   const [detectingLocation, setDetectingLocation] = createSignal(false);
   const [showChips, setShowChips] = createSignal(false);
   const [placeholderIdx, setPlaceholderIdx] = createSignal(0);
+  const [dobValue, setDobValue] = createSignal("");
+  const [dobError, setDobError] = createSignal("");
+  const [photoFile, setPhotoFile] = createSignal<File | null>(null);
+  const [photoPreview, setPhotoPreview] = createSignal<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = createSignal(false);
 
-  // Store accumulated answers
-  const answers: string[][] = [[], [], [], [], [], [], []];
+  // Store accumulated answers (index 0 = age gate, 1 = gender, 2-7 = rest)
+  const answers: string[][] = [[], [], [], [], [], [], [], []];
 
   let messagesEndRef: HTMLDivElement | undefined;
   let inputRef: HTMLInputElement | undefined;
@@ -182,8 +195,41 @@ const Onboarding: Component = () => {
     }
   };
 
+  const submitDob = async () => {
+    const dob = dobValue();
+    if (!dob) return;
+
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+
+    if (age < 18) {
+      setDobError("You must be 18 or older to use Friendly.");
+      return;
+    }
+
+    setDobError("");
+    answers[0] = [dob];
+
+    setMessages((prev) => [...prev, { sender: "user", content: dob }]);
+    setShowChips(false);
+    scrollToBottom();
+
+    const next = 1;
+    setCurrentStep(next);
+    await addAppMessage(QUESTIONS[next].text);
+  };
+
   const submitAnswer = async () => {
     const step = currentStep();
+
+    // Age gate is handled by submitDob
+    if (QUESTIONS[step].ageGate) return;
+
     const sel = [...selected()];
     const custom = customText().trim();
     if (custom) sel.push(custom);
@@ -221,8 +267,25 @@ const Onboarding: Component = () => {
     const u = user();
     if (!u) return;
 
-    // Gender: if "Other" selected with custom text, use the custom text
-    const genderAnswers = answers[0];
+    // Upload photo if selected
+    let avatarUrl = u.user_metadata?.avatar_url ?? null;
+    const file = photoFile();
+    if (file) {
+      setUploadingPhoto(true);
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `${u.id}/avatar.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+        avatarUrl = urlData.publicUrl;
+      }
+      setUploadingPhoto(false);
+    }
+
+    // answers[0] = dob, answers[1] = gender, answers[2-7] = rest
+    const genderAnswers = answers[1];
     let genderVal = genderAnswers[0] ?? null;
     if (genderVal === "Other" && genderAnswers.length > 1) {
       genderVal = genderAnswers[genderAnswers.length - 1];
@@ -232,14 +295,15 @@ const Onboarding: Component = () => {
       id: u.id,
       email: u.email,
       name: u.user_metadata?.full_name ?? u.email?.split("@")[0] ?? "",
-      avatar_url: u.user_metadata?.avatar_url ?? null,
+      avatar_url: avatarUrl,
       gender: genderVal,
-      intent: answers[1],
-      social_style: answers[2][0] ?? null,
-      interests: answers[3],
-      ideal_hangouts: answers[4],
-      political_alignment: answers[5][0] ?? null,
-      fun_fact: answers[6][0] ?? null,
+      date_of_birth: answers[0][0] ?? null,
+      intent: answers[2],
+      social_style: answers[3][0] ?? null,
+      interests: answers[4],
+      ideal_hangouts: answers[5],
+      political_alignment: answers[6][0] ?? null,
+      fun_fact: answers[7][0] ?? null,
       location: locationText().trim() || null,
       verified: false,
     });
@@ -294,7 +358,37 @@ const Onboarding: Component = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      <Show when={!isDone() && showChips() && !isTyping()}>
+      {/* Age gate input */}
+      <Show when={!isDone() && showChips() && !isTyping() && QUESTIONS[currentStep()].ageGate}>
+        <div class="onboarding-input-area">
+          <div class="onboarding-text-row">
+            <input
+              type="date"
+              class="onboarding-text-input"
+              value={dobValue()}
+              onInput={(e) => { setDobValue(e.currentTarget.value); setDobError(""); }}
+              max={new Date().toISOString().split("T")[0]}
+            />
+            <button
+              class="send-btn"
+              onClick={submitDob}
+              disabled={!dobValue()}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+            </button>
+          </div>
+          <Show when={dobError()}>
+            <div style="color:var(--danger, #ff3b30);font-size:13px;margin-top:8px;text-align:center">
+              {dobError()}
+            </div>
+          </Show>
+        </div>
+      </Show>
+
+      {/* Regular question input */}
+      <Show when={!isDone() && showChips() && !isTyping() && !QUESTIONS[currentStep()].ageGate}>
         <div class="onboarding-input-area">
           <Show when={QUESTIONS[currentStep()].chips.length > 0}>
             <div class="onboarding-chips">
@@ -344,6 +438,38 @@ const Onboarding: Component = () => {
 
       <Show when={isDone()}>
         <div class="onboarding-done">
+          {/* Profile photo upload */}
+          <div
+            class="onboarding-photo-upload"
+            onClick={() => {
+              const input = document.createElement("input");
+              input.type = "file";
+              input.accept = "image/*";
+              input.onchange = () => {
+                const file = input.files?.[0];
+                if (file) {
+                  setPhotoFile(file);
+                  const reader = new FileReader();
+                  reader.onload = () => setPhotoPreview(reader.result as string);
+                  reader.readAsDataURL(file);
+                }
+              };
+              input.click();
+            }}
+          >
+            <Show when={photoPreview()} fallback={
+              <div class="onboarding-photo-placeholder">
+                <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" style="opacity:0.5">
+                  <path d="M3 4V1h2v3h3v2H5v3H3V6H0V4h3zm3 6V7h3V4h7l1.83 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V10h3zm7 9c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-3.2-5c0 1.77 1.43 3.2 3.2 3.2s3.2-1.43 3.2-3.2-1.43-3.2-3.2-3.2-3.2 1.43-3.2 3.2z" />
+                </svg>
+                <span>Add a profile photo</span>
+              </div>
+            }>
+              <img src={photoPreview()!} alt="Profile" class="onboarding-photo-preview" />
+              <div class="onboarding-photo-change">Change</div>
+            </Show>
+          </div>
+
           <div class="onboarding-location-row">
             <input
               type="text"

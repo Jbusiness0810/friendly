@@ -1,4 +1,4 @@
-import { createSignal, Show, type Component } from "solid-js";
+import { createSignal, createEffect, Show, type Component } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
@@ -6,8 +6,20 @@ import { showToast } from "../lib/toast";
 import { isNative } from "../lib/capacitor";
 
 const Verify: Component = () => {
-  const { profile, refreshProfile } = useAuth();
+  const { session, profile, loading, refreshProfile } = useAuth();
   const navigate = useNavigate();
+
+  // Auth guard: must be logged in with a profile
+  createEffect(() => {
+    if (loading()) return;
+    if (!session()) {
+      navigate("/landing", { replace: true });
+    } else if (!profile()) {
+      navigate("/onboarding", { replace: true });
+    } else if (profile()!.verified) {
+      navigate("/", { replace: true });
+    }
+  });
 
   const [step, setStep] = createSignal<"intro" | "capture" | "uploading" | "done">("intro");
   const [selfieUrl, setSelfieUrl] = createSignal<string | null>(null);
@@ -127,15 +139,9 @@ const Verify: Component = () => {
 
   return (
     <>
-      <div class="nav-header">
-        <div style="display:flex;align-items:center;gap:10px">
-          <button class="nav-icon" onClick={() => { stopCamera(); navigate(-1); }}>
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-              <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-            </svg>
-          </button>
-          <h1>Photo Verification</h1>
-        </div>
+      <div class="onboarding-header">
+        <img src="/icon.png" alt="Friendly" class="onboarding-header-icon" />
+        <span class="onboarding-header-name">Friendly</span>
       </div>
 
       <div class="content" style="display:flex;flex-direction:column;align-items:center;padding-top:20px">
@@ -174,11 +180,6 @@ const Verify: Component = () => {
               Take Selfie
             </button>
 
-            <Show when={profile()?.verified}>
-              <p style="color:var(--primary);font-size:13px;margin-top:12px;font-weight:500">
-                You're already verified!
-              </p>
-            </Show>
           </div>
         </Show>
 
@@ -212,8 +213,8 @@ const Verify: Component = () => {
             <p style="color:var(--text-secondary);text-align:center;font-size:14px;line-height:1.5">
               Your profile now has a verified badge. Other users can see that you're a real person.
             </p>
-            <button class="landing-cta" style="max-width:300px;margin-top:8px" onClick={() => navigate("/profile")}>
-              Back to Profile
+            <button class="landing-cta" style="max-width:300px;margin-top:8px" onClick={() => navigate("/", { replace: true })}>
+              Start Exploring
             </button>
           </div>
         </Show>

@@ -3,7 +3,7 @@ import { useNavigate } from "@solidjs/router";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import { showToast } from "../lib/toast";
-import { getSuggestedEvents, type SuggestedEvent } from "../lib/suggested-events";
+import { getSuggestedEvents, dismissSuggestion, type SuggestedEvent } from "../lib/suggested-events";
 import {
   loadGoogleMaps,
   isGoogleMapsLoaded,
@@ -252,30 +252,47 @@ const Events: Component = () => {
 
     setJoiningSuggested(suggestion.id);
 
-    const payload: Record<string, unknown> = {
-      creator_id: myId,
-      title: suggestion.title,
-      description: suggestion.description + "\n\nSuggested by Friendly",
-      location: suggestion.location,
-      date: suggestion.date,
-    };
+    let eventId: string;
 
-    const { data: newEvent, error } = await supabase
-      .from("events")
-      .insert(payload)
-      .select()
-      .single();
+    if (suggestion.source === "community" && suggestion.communityEventId) {
+      // Community event: RSVP to the existing event
+      eventId = suggestion.communityEventId;
+      const { error } = await supabase
+        .from("event_rsvps")
+        .insert({ event_id: eventId, user_id: myId });
 
-    if (error) {
-      console.error("Join suggested event error:", error);
-      showToast("Failed to create event");
-      setJoiningSuggested(null);
-      return;
-    }
+      if (error) {
+        console.error("Join community event error:", error);
+        showToast("Failed to join event");
+        setJoiningSuggested(null);
+        return;
+      }
+      setMyRsvps((prev) => new Set(prev).add(eventId));
+    } else {
+      // Template event: create a new event from the suggestion
+      const payload: Record<string, unknown> = {
+        creator_id: myId,
+        title: suggestion.title,
+        description: suggestion.description + "\n\nSuggested by Friendly",
+        location: suggestion.location,
+        date: suggestion.date,
+      };
 
-    // Auto-RSVP
-    const eventId = (newEvent as any).id;
-    if (newEvent) {
+      const { data: newEvent, error } = await supabase
+        .from("events")
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Join suggested event error:", error);
+        showToast("Failed to create event");
+        setJoiningSuggested(null);
+        return;
+      }
+
+      eventId = (newEvent as any).id;
+      // Auto-RSVP
       await supabase.from("event_rsvps").insert({
         event_id: eventId,
         user_id: myId,
@@ -286,12 +303,18 @@ const Events: Component = () => {
     // Create/join the event group chat
     await ensureEventGroupChat(eventId, suggestion.title, myId);
 
-    // Remove from suggestions
+    // Remove from suggestions and mark dismissed
+    dismissSuggestion(suggestion.id);
     setSuggested((prev) => prev.filter((s) => s.id !== suggestion.id));
     setJoiningSuggested(null);
 
     showToast("You're in! Check Chat for the event group.", "success");
     await fetchEvents();
+  };
+
+  const handleDismissSuggestion = (suggestion: SuggestedEvent) => {
+    dismissSuggestion(suggestion.id);
+    setSuggested((prev) => prev.filter((s) => s.id !== suggestion.id));
   };
 
   const toggleRsvp = async (eventId: string, e?: MouseEvent) => {
@@ -628,9 +651,25 @@ const Events: Component = () => {
               <For each={suggested()}>
                 {(s) => (
                   <div class="suggested-card">
+                    <button
+                      class="suggested-dismiss-btn"
+                      onClick={(e) => { e.stopPropagation(); handleDismissSuggestion(s); }}
+                      title="Not interested"
+                    >
+                      ✕
+                    </button>
                     <div class="suggested-card-badge">
-                      <div class="suggested-badge-icon"><img src="/icon.png" alt="" /></div>
-                      Friendly
+                      <Show when={s.source === "community"} fallback={
+                        <>
+                          <div class="suggested-badge-icon"><img src="/icon.png" alt="" /></div>
+                          Suggested
+                        </>
+                      }>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                          <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+                        </svg>
+                        Community
+                      </Show>
                     </div>
                     <div class="suggested-card-title">{s.title}</div>
                     <div class="suggested-card-meta">{s.timeLabel}</div>
@@ -643,7 +682,7 @@ const Events: Component = () => {
                       onClick={() => joinSuggestedEvent(s)}
                       disabled={joiningSuggested() === s.id}
                     >
-                      {joiningSuggested() === s.id ? "Joining..." : "Join"}
+                      {joiningSuggested() === s.id ? "Joining..." : s.source === "community" ? "RSVP" : "Join"}
                     </button>
                   </div>
                 )}
@@ -653,8 +692,14 @@ const Events: Component = () => {
         </Show>
 
         <Show when={events().length > 0} fallback={
-          <div class="empty-state">
-            No upcoming events.<br />Create one!
+          <div class="empty-state-rich">
+            <div class="empty-state-icon">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" style="opacity:0.3">
+                <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z" />
+              </svg>
+            </div>
+            <div class="empty-state-title">No upcoming events</div>
+            <div class="empty-state-sub">Create an event and invite people to hang out!</div>
           </div>
         }>
           <div>

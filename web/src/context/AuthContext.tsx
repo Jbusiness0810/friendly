@@ -53,7 +53,6 @@ export const AuthProvider: ParentComponent = (props) => {
   const [loading, setLoading] = createSignal(true);
 
   const fetchProfile = async (userId: string) => {
-    console.log("[Auth] fetchProfile for:", userId);
     try {
       const result = await Promise.race([
         supabase.from("users").select("*").eq("id", userId).maybeSingle(),
@@ -61,14 +60,9 @@ export const AuthProvider: ParentComponent = (props) => {
           setTimeout(() => reject(new Error("fetchProfile timed out after 8s")), 8000)
         ),
       ]);
-      const { data, error } = result;
-      console.log("[Auth] fetchProfile result:", { hasData: !!data, error: error?.message });
-      if (error) {
-        console.error("[Auth] fetchProfile error:", error);
-      }
+      const { data } = result;
       setProfile(data as UserProfile | null);
-    } catch (err) {
-      console.error("[Auth] fetchProfile threw:", err);
+    } catch {
       setProfile(null);
     }
   };
@@ -80,39 +74,33 @@ export const AuthProvider: ParentComponent = (props) => {
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-        console.log("[Auth] onAuthStateChange:", _event, !!newSession);
         setSession(newSession);
         if (_event === "SIGNED_OUT") {
           setProfile(null);
         } else if (_event === "SIGNED_IN" && initialFetchDone && newSession?.user) {
-          // Only re-fetch on new sign-in after initial load
           await fetchProfile(newSession.user.id);
         }
       });
 
       onCleanup(() => subscription.unsubscribe());
 
-      // Get initial session
       const {
         data: { session: initialSession },
       } = await supabase.auth.getSession();
-      console.log("[Auth] initial session:", !!initialSession, initialSession?.user?.id);
       setSession(initialSession);
       if (initialSession?.user) {
         await fetchProfile(initialSession.user.id);
       }
       initialFetchDone = true;
-    } catch (err) {
-      console.error("[Auth] init error:", err);
+    } catch {
+      // Auth initialization failed
     } finally {
-      console.log("[Auth] setting loading=false, session:", !!session(), "profile:", !!profile());
       setLoading(false);
     }
   });
 
   const signInWithGoogle = async () => {
     const redirectTo = `${window.location.origin}/auth/callback`;
-    console.log("[Auth] Google sign-in redirectTo:", redirectTo);
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo },
@@ -121,7 +109,6 @@ export const AuthProvider: ParentComponent = (props) => {
 
   const signInWithApple = async () => {
     const redirectTo = `${window.location.origin}/auth/callback`;
-    console.log("[Auth] Apple sign-in redirectTo:", redirectTo);
     await supabase.auth.signInWithOAuth({
       provider: "apple",
       options: { redirectTo },
