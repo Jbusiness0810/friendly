@@ -74,16 +74,19 @@ export const AuthProvider: ParentComponent = (props) => {
   };
 
   onMount(async () => {
+    let initialFetchDone = false;
+
     try {
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
         console.log("[Auth] onAuthStateChange:", _event, !!newSession);
         setSession(newSession);
-        if (newSession?.user) {
-          await fetchProfile(newSession.user.id);
-        } else {
+        if (_event === "SIGNED_OUT") {
           setProfile(null);
+        } else if (_event === "SIGNED_IN" && initialFetchDone && newSession?.user) {
+          // Only re-fetch on new sign-in after initial load
+          await fetchProfile(newSession.user.id);
         }
       });
 
@@ -98,6 +101,7 @@ export const AuthProvider: ParentComponent = (props) => {
       if (initialSession?.user) {
         await fetchProfile(initialSession.user.id);
       }
+      initialFetchDone = true;
     } catch (err) {
       console.error("[Auth] init error:", err);
     } finally {

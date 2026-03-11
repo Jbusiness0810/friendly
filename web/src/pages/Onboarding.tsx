@@ -344,61 +344,59 @@ const Onboarding: Component = () => {
 
       <Show when={isDone()}>
         <div class="onboarding-done">
-          <div style="width:100%;margin-bottom:8px">
+          <div class="onboarding-location-row">
             <input
               type="text"
               class="onboarding-text-input"
               placeholder="Your neighborhood (e.g. Newport Beach)"
               value={locationText()}
               onInput={(e) => setLocationText(e.currentTarget.value)}
-              style="width:100%;box-sizing:border-box"
             />
-          </div>
-          <button
-            class="detect-location-btn"
-            onClick={async () => {
-              setDetectingLocation(true);
-              try {
-                const coords = await requestGeolocation();
-                if (coords && typeof google !== "undefined" && google.maps) {
-                  const geocoder = new google.maps.Geocoder();
-                  geocoder.geocode(
-                    { location: { lat: coords.latitude, lng: coords.longitude } },
-                    (results: any, status: any) => {
-                      if (status === "OK" && results?.[0]) {
-                        const comps = results[0].address_components;
-                        const neighborhood = comps.find((c: any) =>
-                          c.types.includes("neighborhood")
-                        );
-                        const city = comps.find((c: any) =>
-                          c.types.includes("locality")
-                        );
-                        const detected =
-                          neighborhood?.long_name ?? city?.long_name;
-                        if (detected) setLocationText(detected);
+            <button
+              class="detect-location-btn"
+              onClick={async () => {
+                setDetectingLocation(true);
+                try {
+                  const coords = await requestGeolocation();
+                  if (coords && typeof google !== "undefined" && google.maps) {
+                    const geocoder = new google.maps.Geocoder();
+                    geocoder.geocode(
+                      { location: { lat: coords.latitude, lng: coords.longitude } },
+                      (results: any, status: any) => {
+                        if (status === "OK" && results?.[0]) {
+                          const comps = results[0].address_components;
+                          const neighborhood = comps.find((c: any) =>
+                            c.types.includes("neighborhood")
+                          );
+                          const city = comps.find((c: any) =>
+                            c.types.includes("locality")
+                          );
+                          const detected =
+                            neighborhood?.long_name ?? city?.long_name;
+                          if (detected) setLocationText(detected);
+                        }
+                        setDetectingLocation(false);
                       }
-                      setDetectingLocation(false);
-                    }
-                  );
-                } else {
+                    );
+                  } else {
+                    setDetectingLocation(false);
+                  }
+                } catch {
                   setDetectingLocation(false);
                 }
-              } catch {
-                setDetectingLocation(false);
-              }
-            }}
-            disabled={detectingLocation()}
-          >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="vertical-align:-2px;margin-right:4px">
-              <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" />
-            </svg>
-            {detectingLocation() ? "Detecting..." : "Use my location"}
-          </button>
+              }}
+              disabled={detectingLocation()}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="vertical-align:-2px;margin-right:4px">
+                <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" />
+              </svg>
+              {detectingLocation() ? "Detecting..." : "Use my location"}
+            </button>
+          </div>
           <button
             class="landing-cta"
             onClick={finishOnboarding}
             disabled={saving()}
-            style="margin-top:12px"
           >
             {saving() ? "Setting up your profile..." : "Start exploring"}
           </button>
