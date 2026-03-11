@@ -15,9 +15,17 @@ const AuthCallback = () => {
   onMount(async () => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
+    const error = params.get("error");
+    const errorDescription = params.get("error_description");
 
     console.log("[AuthCallback] URL:", window.location.href);
-    console.log("[AuthCallback] code present:", !!code);
+
+    // Supabase returns ?error= when the server-side exchange fails
+    if (error) {
+      console.error("[AuthCallback] OAuth error:", error, errorDescription);
+      navigate("/landing", { replace: true });
+      return;
+    }
 
     if (code) {
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
