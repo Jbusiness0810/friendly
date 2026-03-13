@@ -1,0 +1,16 @@
+Friendly is a social app for meeting neighbors and making platonic friends.
+
+To test the app:
+1. Sign up with email or use Sign in with Apple/Google
+2. Complete onboarding (name, interests, location)
+3. Browse the home feed to see nearby users
+4. Tap "Wave" to send a connection request
+5. If the other person waves back, you can chat
+6. Check the Events tab to see/create local events
+7. Visit Profile to edit your info or delete your account
+
+A demo account is available:
+Email: review@friendly.app
+Password: AppReview2026!
+
+Note: The app requires location access to show nearby users. Please allow location when prompted. If testing in the simulator, set a custom location.

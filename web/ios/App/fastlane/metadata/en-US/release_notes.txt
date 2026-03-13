@@ -1,0 +1,8 @@
+Welcome to Friendly! This is our first release.
+
+• Wave at nearby people to connect
+• Create and join local events
+• Join circles based on shared interests
+• Chat with your matches
+• Sign in with Apple, Google, or email
+• Dark mode support
