@@ -1,1 +1,1 @@
-friends,meetup,neighbors,social,hangout,nearby,local,community,events,platonic
+meetup,social,hangout,nearby,community,events,platonic,buddy,connect,crew,pickup,people,workout
