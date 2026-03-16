@@ -1584,6 +1584,361 @@ body {
     white-space: nowrap;
     text-align: center;
 }
+.event-attendee-maybe {
+    opacity: 0.6;
+    border: 2px dashed var(--text-secondary);
+}
+
+/* ================================================================ */
+/* THEMED EVENT DATE (list view)                                     */
+/* ================================================================ */
+.event-date-themed {
+    text-align: center;
+    min-width: 52px;
+    max-width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.event-date-themed .month {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.event-date-themed .day {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+/* ================================================================ */
+/* THEMED EVENT DETAIL HERO                                          */
+/* ================================================================ */
+.event-detail-hero-themed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: rgba(255,255,255,0.9);
+    gap: 8px;
+}
+.event-detail-hero-emoji {
+    font-size: 48px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.2));
+}
+.event-detail-hero-location {
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0.85;
+    max-width: 80%;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ================================================================ */
+/* RSVP TIERS (Going / Maybe / Can't Go)                            */
+/* ================================================================ */
+.rsvp-tier-section {
+    margin-bottom: 16px;
+    padding: 14px;
+    background: var(--active-bg);
+    border-radius: 12px;
+}
+.rsvp-tier-buttons {
+    display: flex;
+    gap: 8px;
+}
+.rsvp-tier-btn {
+    flex: 1;
+    padding: 10px 8px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+}
+.rsvp-tier-btn:active { transform: scale(0.95); }
+.rsvp-tier-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.rsvp-tier-icon {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+}
+.rsvp-tier-going.rsvp-tier-active {
+    border-color: #34C759;
+    background: rgba(52, 199, 89, 0.1);
+    color: #34C759;
+}
+.rsvp-tier-maybe.rsvp-tier-active {
+    border-color: #FF9500;
+    background: rgba(255, 149, 0, 0.1);
+    color: #FF9500;
+}
+.rsvp-tier-cant.rsvp-tier-active {
+    border-color: #FF3B30;
+    background: rgba(255, 59, 48, 0.1);
+    color: #FF3B30;
+}
+
+/* RSVP Maybe button (list view) */
+.rsvp-btn-maybe {
+    background: #FF9500;
+    color: #FFFFFF;
+}
+
+/* ================================================================ */
+/* PLUS-ONES STEPPER                                                 */
+/* ================================================================ */
+.plus-one-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+.plus-one-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+.plus-one-stepper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.plus-one-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+.plus-one-btn:active { transform: scale(0.9); }
+.plus-one-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+.plus-one-count {
+    font-size: 14px;
+    font-weight: 600;
+    min-width: 52px;
+    text-align: center;
+    color: var(--text);
+}
+
+/* ================================================================ */
+/* THEME PICKER (create event)                                       */
+/* ================================================================ */
+.theme-picker {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.theme-dot {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+.theme-dot:active { transform: scale(0.9); }
+.theme-dot-active {
+    border-color: var(--text);
+    box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--text);
+}
+
+/* ================================================================ */
+/* EVENT COMMENT WALL                                                */
+/* ================================================================ */
+.event-wall {
+    margin-top: 16px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+}
+.event-wall-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.event-wall-title {
+    font-size: 15px;
+    font-weight: 700;
+}
+.event-wall-count {
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--active-bg);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+.event-wall-comments {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.event-wall-comment {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+.event-wall-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--avatar-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #FFFFFF;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.event-wall-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.event-wall-comment-body {
+    flex: 1;
+    min-width: 0;
+    background: var(--active-bg);
+    border-radius: 12px;
+    padding: 8px 12px;
+}
+.event-wall-comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+}
+.event-wall-comment-name {
+    font-size: 12px;
+    font-weight: 600;
+}
+.event-wall-comment-time {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+.event-wall-comment-text {
+    font-size: 14px;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+.event-wall-delete {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px;
+    opacity: 0.5;
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+.event-wall-delete:hover { opacity: 1; }
+.event-wall-input {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.event-wall-input input {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+}
+.event-wall-input input:focus {
+    border-color: var(--primary);
+}
+.event-wall-send {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+}
+.event-wall-send:active { transform: scale(0.9); }
+.event-wall-send:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ================================================================ */
+/* CONFETTI ANIMATION                                                */
+/* ================================================================ */
+.confetti-piece {
+    position: absolute;
+    width: 10px;
+    height: 6px;
+    top: 50%;
+    z-index: 100;
+    pointer-events: none;
+    animation: confetti-burst 1s ease-out forwards;
+}
+@keyframes confetti-burst {
+    0% {
+        opacity: 1;
+        transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-200px) translateX(var(--x)) rotate(var(--r)) scale(0.5);
+    }
+}
 
 /* Capacity toggle */
 .capacity-toggle {

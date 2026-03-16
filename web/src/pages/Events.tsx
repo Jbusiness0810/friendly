@@ -13,6 +13,10 @@ import {
   type PlaceResult,
 } from "../lib/google-places";
 
+// ---- Types ----
+
+type RsvpStatus = "going" | "maybe" | "cant_go";
+
 interface EventRow {
   id: string;
   creator_id: string;
@@ -25,6 +29,7 @@ interface EventRow {
   image_url: string | null;
   place_id: string | null;
   visibility: string | null;
+  theme: string;
   created_at: string;
   event_rsvps: { count: number }[];
 }
@@ -39,7 +44,69 @@ interface AttendeeProfile {
   id: string;
   name: string;
   avatar_url: string | null;
+  status: RsvpStatus;
+  guest_count: number;
 }
+
+interface EventComment {
+  id: string;
+  event_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  users: { name: string; avatar_url: string | null } | null;
+}
+
+// ---- Event Themes ----
+
+interface EventTheme {
+  id: string;
+  label: string;
+  gradient: string;
+  accent: string;
+  emoji: string;
+}
+
+const EVENT_THEMES: EventTheme[] = [
+  { id: "default",   label: "Default",    gradient: "linear-gradient(135deg, #007AFF 0%, #0051D5 100%)",                   accent: "#007AFF", emoji: "" },
+  { id: "sunset",    label: "Sunset",     gradient: "linear-gradient(135deg, #FF6B6B 0%, #FFB347 50%, #FF4E50 100%)",      accent: "#FF6B6B", emoji: "" },
+  { id: "neon",      label: "Neon Night", gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",      accent: "#764ba2", emoji: "" },
+  { id: "garden",    label: "Garden",     gradient: "linear-gradient(135deg, #56ab2f 0%, #a8e063 100%)",                   accent: "#56ab2f", emoji: "" },
+  { id: "ocean",     label: "Ocean",      gradient: "linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%)",                   accent: "#2193b0", emoji: "" },
+  { id: "party",     label: "Party",      gradient: "linear-gradient(135deg, #f857a6 0%, #ff5858 50%, #ffc371 100%)",      accent: "#f857a6", emoji: "" },
+  { id: "cozy",      label: "Cozy",       gradient: "linear-gradient(135deg, #614385 0%, #516395 100%)",                   accent: "#614385", emoji: "" },
+  { id: "golden",    label: "Golden Hour", gradient: "linear-gradient(135deg, #F2994A 0%, #F2C94C 100%)",                  accent: "#F2994A", emoji: "" },
+];
+
+const getTheme = (id: string): EventTheme =>
+  EVENT_THEMES.find((t) => t.id === id) ?? EVENT_THEMES[0];
+
+// ---- Confetti ----
+
+function launchConfetti(container: HTMLElement) {
+  const colors = ["#FF6B6B", "#FFB347", "#4ECDC4", "#45B7D1", "#96E6A1", "#DDA0DD", "#F7DC6F", "#FF69B4"];
+  const count = 60;
+
+  for (let i = 0; i < count; i++) {
+    const confetti = document.createElement("div");
+    confetti.className = "confetti-piece";
+    confetti.style.setProperty("--x", `${(Math.random() - 0.5) * 300}px`);
+    confetti.style.setProperty("--r", `${Math.random() * 720 - 360}deg`);
+    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    confetti.style.left = `${40 + Math.random() * 20}%`;
+    confetti.style.animationDelay = `${Math.random() * 0.3}s`;
+    confetti.style.animationDuration = `${0.8 + Math.random() * 0.6}s`;
+    if (Math.random() > 0.5) {
+      confetti.style.borderRadius = "50%";
+      confetti.style.width = "8px";
+      confetti.style.height = "8px";
+    }
+    container.appendChild(confetti);
+    setTimeout(() => confetti.remove(), 1500);
+  }
+}
+
+// ---- Helpers ----
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -58,18 +125,31 @@ function formatFullDate(iso: string): string {
   return `${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
+function timeAgo(iso: string): string {
+  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 const getInitials = (name: string) => {
   const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return name.slice(0, 2).toUpperCase();
 };
 
+// ---- Component ----
+
 const Events: Component = () => {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
 
   const [events, setEvents] = createSignal<EventRow[]>([]);
-  const [myRsvps, setMyRsvps] = createSignal<Set<string>>(new Set());
+  const [myRsvps, setMyRsvps] = createSignal<Map<string, RsvpStatus>>(new Map());
   const [loading, setLoading] = createSignal(true);
   const [suggested, setSuggested] = createSignal<SuggestedEvent[]>([]);
   const [loadingSuggested, setLoadingSuggested] = createSignal(false);
@@ -84,6 +164,15 @@ const Events: Component = () => {
   const [attendees, setAttendees] = createSignal<AttendeeProfile[]>([]);
   const [eventConvoId, setEventConvoId] = createSignal<string | null>(null);
 
+  // RSVP detail
+  const [showRsvpSheet, setShowRsvpSheet] = createSignal(false);
+  const [rsvpGuestCount, setRsvpGuestCount] = createSignal(0);
+
+  // Comments (wall)
+  const [comments, setComments] = createSignal<EventComment[]>([]);
+  const [commentText, setCommentText] = createSignal("");
+  const [postingComment, setPostingComment] = createSignal(false);
+
   // Form fields
   const [title, setTitle] = createSignal("");
   const [description, setDescription] = createSignal("");
@@ -97,19 +186,19 @@ const Events: Component = () => {
   const [photoPreview, setPhotoPreview] = createSignal<string | null>(null);
   const [capacityMode, setCapacityMode] = createSignal<"open" | "limited">("open");
   const [visibility, setVisibility] = createSignal<"public" | "friends" | "invite">("public");
+  const [selectedTheme, setSelectedTheme] = createSignal("default");
   const [inviteFriends, setInviteFriends] = createSignal<FriendProfile[]>([]);
   const [selectedInvites, setSelectedInvites] = createSignal<Set<string>>(new Set());
   const [loadingFriends, setLoadingFriends] = createSignal(false);
 
   let locationContainerRef: HTMLDivElement | undefined;
   let photoInputRef: HTMLInputElement | undefined;
+  let detailSheetRef: HTMLDivElement | undefined;
 
   onMount(async () => {
-    // Load Google Maps first so venue search works for suggestions
     await loadGoogleMaps().catch(() => {});
     await loadAll();
 
-    // Generate suggested events based on user profile (async — uses Google Places)
     const p = profile();
     if (p) {
       setLoadingSuggested(true);
@@ -139,11 +228,14 @@ const Events: Component = () => {
     if (!myId) return;
     const { data } = await supabase
       .from("event_rsvps")
-      .select("event_id")
+      .select("event_id, status")
       .eq("user_id", myId);
 
-    const ids = new Set((data ?? []).map((r: { event_id: string }) => r.event_id));
-    setMyRsvps(ids);
+    const map = new Map<string, RsvpStatus>();
+    for (const r of data ?? []) {
+      map.set(r.event_id, (r as any).status ?? "going");
+    }
+    setMyRsvps(map);
   };
 
   const loadAll = async () => {
@@ -153,22 +245,18 @@ const Events: Component = () => {
   };
 
   // ---- Event Group Chat helpers ----
-  // Uses event_conversations linking table. Run scripts/add-event-conversations.sql first.
 
-  /** Find an existing group chat for an event via the linking table */
   const findEventGroupChat = async (eventId: string): Promise<string | null> => {
     const { data, error } = await supabase
       .from("event_conversations")
       .select("conversation_id")
       .eq("event_id", eventId)
       .maybeSingle();
-    if (error) return null; // Table may not exist yet
+    if (error) return null;
     return data?.conversation_id ?? null;
   };
 
-  /** Create a group conversation (tries with group_name, falls back without) */
   const createConversation = async (eventTitle: string, creatorId: string): Promise<string | null> => {
-    // Try with group_name for nice display in Chat
     const { data, error } = await supabase
       .from("conversations")
       .insert({ type: "group", participants: [creatorId], group_name: eventTitle })
@@ -177,7 +265,6 @@ const Events: Component = () => {
 
     if (!error && data) return data.id;
 
-    // Fallback: create without group_name (column may not exist)
     const { data: data2, error: error2 } = await supabase
       .from("conversations")
       .insert({ type: "group", participants: [creatorId] })
@@ -191,24 +278,20 @@ const Events: Component = () => {
     return data2?.id ?? null;
   };
 
-  /** Find or create the group chat for an event, ensure userId is a participant */
   const ensureEventGroupChat = async (eventId: string, eventTitle: string, userId: string): Promise<string | null> => {
     let convoId = await findEventGroupChat(eventId);
 
     if (!convoId) {
-      // Create a new conversation
       convoId = await createConversation(eventTitle, userId);
       if (!convoId) return null;
 
-      // Link it in the event_conversations table
       const { error: linkErr } = await supabase
         .from("event_conversations")
         .insert({ event_id: eventId, conversation_id: convoId });
       if (linkErr) {
-        console.warn("Could not link event to chat (run scripts/add-event-conversations.sql):", linkErr.message);
+        console.warn("Could not link event to chat:", linkErr.message);
       }
     } else {
-      // Add user to participants if not already in
       const { data: convo } = await supabase
         .from("conversations")
         .select("participants")
@@ -226,7 +309,6 @@ const Events: Component = () => {
     return convoId;
   };
 
-  /** Remove a user from an event's group chat */
   const removeFromEventGroupChat = async (eventId: string, userId: string) => {
     const convoId = await findEventGroupChat(eventId);
     if (!convoId) return;
@@ -245,6 +327,8 @@ const Events: Component = () => {
         .eq("id", convoId);
     }
   };
+
+  // ---- Suggested Events ----
 
   const joinSuggestedEvent = async (suggestion: SuggestedEvent) => {
     const myId = user()?.id;
@@ -273,20 +357,18 @@ const Events: Component = () => {
       return;
     }
 
-    // Auto-RSVP
     const eventId = (newEvent as any).id;
     if (newEvent) {
       await supabase.from("event_rsvps").insert({
         event_id: eventId,
         user_id: myId,
+        status: "going",
+        guest_count: 0,
       });
-      setMyRsvps((prev) => new Set(prev).add(eventId));
+      setMyRsvps((prev) => new Map(prev).set(eventId, "going"));
     }
 
-    // Create/join the event group chat
     await ensureEventGroupChat(eventId, suggestion.title, myId);
-
-    // Remove from suggestions
     setSuggested((prev) => prev.filter((s) => s.id !== suggestion.id));
     setJoiningSuggested(null);
 
@@ -294,70 +376,147 @@ const Events: Component = () => {
     await fetchEvents();
   };
 
-  const toggleRsvp = async (eventId: string, e?: MouseEvent) => {
+  // ---- RSVP with status ----
+
+  const handleRsvp = async (eventId: string, status: RsvpStatus, guestCount: number = 0, e?: MouseEvent) => {
     if (e) e.stopPropagation();
     const myId = user()?.id;
     if (!myId) return;
 
-    const isGoing = myRsvps().has(eventId);
+    const currentStatus = myRsvps().get(eventId);
+    const isAlreadyRsvpd = currentStatus !== undefined;
 
-    // Optimistic update
-    setMyRsvps((prev) => {
-      const next = new Set(prev);
-      if (isGoing) next.delete(eventId);
-      else next.add(eventId);
-      return next;
-    });
-
-    setEvents((prev) =>
-      prev.map((ev) => {
-        if (ev.id !== eventId) return ev;
-        const currentCount = ev.event_rsvps[0]?.count ?? 0;
-        const newCount = isGoing ? Math.max(0, currentCount - 1) : currentCount + 1;
-        return { ...ev, event_rsvps: [{ count: newCount }] };
-      })
-    );
-
-    let error;
-    if (isGoing) {
-      ({ error } = await supabase
-        .from("event_rsvps")
-        .delete()
-        .eq("event_id", eventId)
-        .eq("user_id", myId));
-    } else {
-      ({ error } = await supabase
-        .from("event_rsvps")
-        .insert({ event_id: eventId, user_id: myId }));
-    }
-
-    // Sync group chat membership in background
-    const ev = events().find((e) => e.id === eventId);
-    if (ev && !error) {
-      if (isGoing) {
-        removeFromEventGroupChat(ev.id, myId).catch(() => {});
-      } else {
-        ensureEventGroupChat(ev.id, ev.title, myId).catch(() => {});
-      }
-    }
-
-    if (error) {
+    if (status === "cant_go" && isAlreadyRsvpd) {
+      // Remove RSVP entirely
       setMyRsvps((prev) => {
-        const next = new Set(prev);
-        if (isGoing) next.add(eventId);
-        else next.delete(eventId);
+        const next = new Map(prev);
+        next.delete(eventId);
         return next;
       });
       setEvents((prev) =>
         prev.map((ev) => {
           if (ev.id !== eventId) return ev;
           const currentCount = ev.event_rsvps[0]?.count ?? 0;
-          const newCount = isGoing ? currentCount + 1 : Math.max(0, currentCount - 1);
-          return { ...ev, event_rsvps: [{ count: newCount }] };
+          return { ...ev, event_rsvps: [{ count: Math.max(0, currentCount - 1) }] };
         })
       );
-      showToast("Failed to update RSVP");
+
+      const { error } = await supabase
+        .from("event_rsvps")
+        .delete()
+        .eq("event_id", eventId)
+        .eq("user_id", myId);
+
+      if (error) {
+        setMyRsvps((prev) => new Map(prev).set(eventId, currentStatus!));
+        showToast("Failed to update RSVP");
+        return;
+      }
+
+      const ev = events().find((e) => e.id === eventId);
+      if (ev) removeFromEventGroupChat(ev.id, myId).catch(() => {});
+      return;
     }
+
+    // Upsert RSVP
+    setMyRsvps((prev) => new Map(prev).set(eventId, status));
+    if (!isAlreadyRsvpd) {
+      setEvents((prev) =>
+        prev.map((ev) => {
+          if (ev.id !== eventId) return ev;
+          const currentCount = ev.event_rsvps[0]?.count ?? 0;
+          return { ...ev, event_rsvps: [{ count: currentCount + 1 }] };
+        })
+      );
+    }
+
+    let error;
+    if (isAlreadyRsvpd) {
+      ({ error } = await supabase
+        .from("event_rsvps")
+        .update({ status, guest_count: guestCount })
+        .eq("event_id", eventId)
+        .eq("user_id", myId));
+    } else {
+      ({ error } = await supabase
+        .from("event_rsvps")
+        .insert({ event_id: eventId, user_id: myId, status, guest_count: guestCount }));
+    }
+
+    if (error) {
+      if (isAlreadyRsvpd) {
+        setMyRsvps((prev) => new Map(prev).set(eventId, currentStatus!));
+      } else {
+        setMyRsvps((prev) => {
+          const next = new Map(prev);
+          next.delete(eventId);
+          return next;
+        });
+      }
+      showToast("Failed to update RSVP");
+      return;
+    }
+
+    // Confetti on "going"!
+    if (status === "going" && !isAlreadyRsvpd && detailSheetRef) {
+      launchConfetti(detailSheetRef);
+    }
+
+    const ev = events().find((e) => e.id === eventId);
+    if (ev) {
+      if (status === "going") {
+        ensureEventGroupChat(ev.id, ev.title, myId).catch(() => {});
+      }
+    }
+  };
+
+  // Legacy toggle for list view quick-RSVP
+  const toggleRsvp = async (eventId: string, e?: MouseEvent) => {
+    if (e) e.stopPropagation();
+    const currentStatus = myRsvps().get(eventId);
+    if (currentStatus) {
+      await handleRsvp(eventId, "cant_go", 0, e);
+    } else {
+      await handleRsvp(eventId, "going", 0, e);
+    }
+  };
+
+  // ---- Comments (Wall) ----
+
+  const fetchComments = async (eventId: string) => {
+    const { data } = await supabase
+      .from("event_comments")
+      .select("*, users(name, avatar_url)")
+      .eq("event_id", eventId)
+      .order("created_at", { ascending: true });
+    setComments((data as EventComment[]) ?? []);
+  };
+
+  const postComment = async () => {
+    const ev = selectedEvent();
+    const myId = user()?.id;
+    const text = commentText().trim();
+    if (!ev || !myId || !text) return;
+
+    setPostingComment(true);
+    const { error } = await supabase
+      .from("event_comments")
+      .insert({ event_id: ev.id, user_id: myId, content: text });
+
+    if (error) {
+      showToast("Failed to post comment");
+    } else {
+      setCommentText("");
+      await fetchComments(ev.id);
+    }
+    setPostingComment(false);
+  };
+
+  const deleteComment = async (commentId: string) => {
+    const ev = selectedEvent();
+    if (!ev) return;
+    await supabase.from("event_comments").delete().eq("id", commentId);
+    await fetchComments(ev.id);
   };
 
   // -- Event Detail Modal --
@@ -367,23 +526,32 @@ const Events: Component = () => {
     setLoadingPhoto(true);
     setAttendees([]);
     setEventConvoId(null);
+    setComments([]);
+    setCommentText("");
+    setShowRsvpSheet(false);
+    setRsvpGuestCount(0);
 
-    // Look up the event's group chat
     findEventGroupChat(event.id).then((id) => setEventConvoId(id));
+    fetchComments(event.id);
 
-    // Fetch attendees
+    // Fetch attendees with status + guest_count
     supabase
       .from("event_rsvps")
-      .select("user_id, users(id, name, avatar_url)")
+      .select("user_id, status, guest_count, users(id, name, avatar_url)")
       .eq("event_id", event.id)
       .then(({ data }) => {
         if (data) {
-          const profiles = data.map((r: any) => r.users as AttendeeProfile).filter(Boolean);
+          const profiles = data
+            .map((r: any) => ({
+              ...(r.users as { id: string; name: string; avatar_url: string | null }),
+              status: r.status ?? "going",
+              guest_count: r.guest_count ?? 0,
+            }))
+            .filter((p: any) => p.id);
           setAttendees(profiles);
         }
       });
 
-    // Priority: user-uploaded photo > Google Places by place_id > location search
     if (event.image_url) {
       setDetailPhoto(event.image_url);
       setLoadingPhoto(false);
@@ -392,15 +560,12 @@ const Events: Component = () => {
 
     if (isGoogleMapsLoaded()) {
       let photo: string | null = null;
-
       if (event.place_id) {
         photo = await getPlacePhoto(event.place_id);
       }
       if (!photo && event.location) {
         photo = await searchPlacePhoto(event.location);
       }
-      // Don't search by title — it produces irrelevant photos
-
       setDetailPhoto(photo);
     }
     setLoadingPhoto(false);
@@ -410,6 +575,8 @@ const Events: Component = () => {
     setSelectedEvent(null);
     setDetailPhoto(null);
     setAttendees([]);
+    setComments([]);
+    setShowRsvpSheet(false);
   };
 
   // -- Create Event Form --
@@ -426,6 +593,7 @@ const Events: Component = () => {
     setPhotoPreview(null);
     setCapacityMode("open");
     setVisibility("public");
+    setSelectedTheme("default");
     setSelectedInvites(new Set());
     if (photoInputRef) photoInputRef.value = "";
   };
@@ -438,7 +606,6 @@ const Events: Component = () => {
       const { data } = await supabase.rpc("get_mutual_friends", { my_id: myId });
       setInviteFriends((data ?? []) as FriendProfile[]);
     } catch {
-      // Fallback if RPC not available
       const { data: waves } = await supabase
         .from("waves")
         .select("target_id")
@@ -485,7 +652,6 @@ const Events: Component = () => {
 
   const openCreateModal = () => {
     setShowModal(true);
-    // Create autocomplete element after DOM updates
     setTimeout(() => {
       if (locationContainerRef && isGoogleMapsLoaded()) {
         createAutocomplete(locationContainerRef, (place: PlaceResult) => {
@@ -503,7 +669,6 @@ const Events: Component = () => {
 
     setSubmitting(true);
 
-    // Upload photo if selected
     let imageUrl: string | null = null;
     const file = photoFile();
     if (file) {
@@ -525,7 +690,6 @@ const Events: Component = () => {
       imageUrl = urlData.publicUrl;
     }
 
-    // Combine date + time (default to 12:00 PM if no time set)
     const timeStr = eventTime() || "12:00";
     const combined = `${eventDate()}T${timeStr}`;
 
@@ -540,6 +704,7 @@ const Events: Component = () => {
       place_id: placeId(),
       image_url: imageUrl,
       visibility: visibility(),
+      theme: selectedTheme(),
     };
 
     const { data: newEvent, error } = await supabase
@@ -554,7 +719,6 @@ const Events: Component = () => {
       return;
     }
 
-    // Insert invites for invite-only events
     if (visibility() === "invite" && newEvent && selectedInvites().size > 0) {
       const inviteRows = [...selectedInvites()].map((uid) => ({
         event_id: (newEvent as any).id,
@@ -563,7 +727,6 @@ const Events: Component = () => {
       await supabase.from("event_invites").insert(inviteRows);
     }
 
-    // Create group chat for this event
     if (newEvent) {
       await ensureEventGroupChat((newEvent as any).id, (newEvent as any).title, myId);
     }
@@ -586,6 +749,28 @@ const Events: Component = () => {
     if (!event.price || event.price === "0" || event.price.toLowerCase() === "free") return "Free";
     return event.price.startsWith("$") ? event.price : `$${event.price}`;
   };
+
+  const getMyRsvpStatus = (eventId: string): RsvpStatus | null => {
+    return myRsvps().get(eventId) ?? null;
+  };
+
+  const getRsvpLabel = (status: RsvpStatus | null): string => {
+    if (status === "going") return "Going";
+    if (status === "maybe") return "Maybe";
+    return "RSVP";
+  };
+
+  const getRsvpBtnClass = (status: RsvpStatus | null, isFull: boolean): string => {
+    if (status === "going") return "rsvp-btn rsvp-btn-going";
+    if (status === "maybe") return "rsvp-btn rsvp-btn-maybe";
+    if (isFull) return "rsvp-btn rsvp-btn-full";
+    return "rsvp-btn rsvp-btn-default";
+  };
+
+  // Grouped attendees
+  const goingAttendees = () => attendees().filter((a) => a.status === "going");
+  const maybeAttendees = () => attendees().filter((a) => a.status === "maybe");
+  const totalGoing = () => goingAttendees().reduce((sum, a) => sum + 1 + a.guest_count, 0);
 
   return (
     <>
@@ -663,18 +848,19 @@ const Events: Component = () => {
                 const d = new Date(event.date);
                 const month = MONTHS[d.getMonth()];
                 const day = d.getDate();
-                const isGoing = () => myRsvps().has(event.id);
+                const status = () => getMyRsvpStatus(event.id);
                 const isFull = () =>
                   event.capacity != null &&
                   getRsvpCount(event) >= event.capacity &&
-                  !isGoing();
+                  !status();
+                const theme = getTheme(event.theme ?? "default");
 
                 return (
                   <div class="event-row event-row-clickable" onClick={() => openEventDetail(event)}>
                     <Show when={event.image_url} fallback={
-                      <div class="event-date">
-                        <div class="month">{month}</div>
-                        <div class="day">{day}</div>
+                      <div class="event-date-themed" style={`background:${theme.gradient}`}>
+                        <div class="month" style="color:rgba(255,255,255,0.85)">{month}</div>
+                        <div class="day" style="color:#fff">{day}</div>
                       </div>
                     }>
                       <div class="event-thumb">
@@ -710,11 +896,11 @@ const Events: Component = () => {
                       <div class="event-badge">{getPriceDisplay(event)}</div>
                       <Show when={user()}>
                         <button
-                          class={`rsvp-btn ${isGoing() ? "rsvp-btn-going" : isFull() ? "rsvp-btn-full" : "rsvp-btn-default"}`}
+                          class={getRsvpBtnClass(status(), isFull())}
                           onClick={(e) => toggleRsvp(event.id, e)}
                           disabled={isFull()}
                         >
-                          {isGoing() ? "Going" : isFull() ? "Full" : "RSVP"}
+                          {getRsvpLabel(status())}
                         </button>
                       </Show>
                     </div>
@@ -729,24 +915,30 @@ const Events: Component = () => {
       {/* ========== Event Detail Modal ========== */}
       <Show when={selectedEvent()}>
         {(ev) => {
-          const isGoing = () => myRsvps().has(ev().id);
+          const status = () => getMyRsvpStatus(ev().id);
           const isFull = () =>
             ev().capacity != null &&
             getRsvpCount(ev()) >= ev().capacity &&
-            !isGoing();
+            !status();
+          const theme = () => getTheme(ev().theme ?? "default");
 
           return (
             <div class="modal-overlay" onClick={closeDetail}>
-              <div class="event-detail-sheet" onClick={(e) => e.stopPropagation()}>
-                {/* Place photo hero */}
-                <div class="event-detail-hero">
+              <div
+                ref={detailSheetRef}
+                class="event-detail-sheet"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Themed hero */}
+                <div
+                  class="event-detail-hero"
+                  style={!detailPhoto() && !loadingPhoto() ? `background:${theme().gradient}` : ""}
+                >
                   <Show when={detailPhoto()} fallback={
                     <Show when={loadingPhoto()} fallback={
-                      <div class="event-detail-hero-placeholder">
-                        <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" style="opacity:0.4">
-                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                        </svg>
-                        <span>{ev().location ?? ev().title}</span>
+                      <div class="event-detail-hero-themed">
+                        <span class="event-detail-hero-emoji">{theme().emoji}</span>
+                        <span class="event-detail-hero-location">{ev().location ?? ev().title}</span>
                       </div>
                     }>
                       <div class="event-detail-hero-placeholder">
@@ -756,7 +948,7 @@ const Events: Component = () => {
                   }>
                     <img src={detailPhoto()!} alt={ev().location ?? ev().title} class="event-detail-hero-img" />
                   </Show>
-                  <button class="event-detail-close" onClick={closeDetail}>✕</button>
+                  <button class="event-detail-close" onClick={closeDetail}>&#10005;</button>
                 </div>
 
                 <div class="event-detail-body">
@@ -795,7 +987,7 @@ const Events: Component = () => {
                           <span class="open-badge">&#8734; Open to all</span>
                           <Show when={getRsvpCount(ev()) > 0}>
                             <span style="margin-left:8px;color:var(--text-secondary);font-weight:400">
-                              · {getRsvpCount(ev())} going
+                              · {totalGoing()} going
                             </span>
                           </Show>
                         </Show>
@@ -810,30 +1002,127 @@ const Events: Component = () => {
                     </div>
                   </div>
 
-                  {/* Attendees */}
+                  {/* RSVP Tier Buttons */}
+                  <Show when={user()}>
+                    <div class="rsvp-tier-section">
+                      <div class="rsvp-tier-buttons">
+                        <button
+                          class={`rsvp-tier-btn rsvp-tier-going ${status() === "going" ? "rsvp-tier-active" : ""}`}
+                          onClick={() => handleRsvp(ev().id, "going", rsvpGuestCount())}
+                          disabled={isFull() && status() !== "going"}
+                        >
+                          <span class="rsvp-tier-icon">&#10003;</span>
+                          Going
+                        </button>
+                        <button
+                          class={`rsvp-tier-btn rsvp-tier-maybe ${status() === "maybe" ? "rsvp-tier-active" : ""}`}
+                          onClick={() => handleRsvp(ev().id, "maybe", rsvpGuestCount())}
+                        >
+                          <span class="rsvp-tier-icon">?</span>
+                          Maybe
+                        </button>
+                        <button
+                          class={`rsvp-tier-btn rsvp-tier-cant ${status() === "cant_go" || (!status() && false) ? "rsvp-tier-active" : ""}`}
+                          onClick={() => handleRsvp(ev().id, "cant_go")}
+                        >
+                          <span class="rsvp-tier-icon">&#10005;</span>
+                          Can't Go
+                        </button>
+                      </div>
+
+                      {/* Plus-ones */}
+                      <Show when={status() === "going" || status() === "maybe"}>
+                        <div class="plus-one-section">
+                          <span class="plus-one-label">Bringing guests?</span>
+                          <div class="plus-one-stepper">
+                            <button
+                              class="plus-one-btn"
+                              onClick={() => {
+                                const newCount = Math.max(0, rsvpGuestCount() - 1);
+                                setRsvpGuestCount(newCount);
+                                handleRsvp(ev().id, status()!, newCount);
+                              }}
+                              disabled={rsvpGuestCount() === 0}
+                            >
+                              -
+                            </button>
+                            <span class="plus-one-count">
+                              {rsvpGuestCount() === 0 ? "Just me" : `+${rsvpGuestCount()}`}
+                            </span>
+                            <button
+                              class="plus-one-btn"
+                              onClick={() => {
+                                const newCount = Math.min(5, rsvpGuestCount() + 1);
+                                setRsvpGuestCount(newCount);
+                                handleRsvp(ev().id, status()!, newCount);
+                              }}
+                              disabled={rsvpGuestCount() >= 5}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </Show>
+                    </div>
+                  </Show>
+
+                  {/* Guest List — Grouped by status */}
                   <Show when={attendees().length > 0}>
                     <div class="event-attendees">
-                      <div class="event-attendees-label">Who's going</div>
-                      <div class="event-attendees-scroll">
-                        <For each={attendees()}>
-                          {(att) => (
-                            <div
-                              class="event-attendee"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/user/${att.id}`);
-                              }}
-                            >
-                              <div class={`event-attendee-avatar${att.avatar_url ? " avatar-photo" : ""}`}>
-                                <Show when={att.avatar_url} fallback={getInitials(att.name)}>
-                                  <img src={att.avatar_url!} alt={att.name} />
-                                </Show>
+                      <Show when={goingAttendees().length > 0}>
+                        <div class="event-attendees-label">
+                          Going ({totalGoing()})
+                        </div>
+                        <div class="event-attendees-scroll">
+                          <For each={goingAttendees()}>
+                            {(att) => (
+                              <div
+                                class="event-attendee"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/user/${att.id}`);
+                                }}
+                              >
+                                <div class={`event-attendee-avatar${att.avatar_url ? " avatar-photo" : ""}`}>
+                                  <Show when={att.avatar_url} fallback={getInitials(att.name)}>
+                                    <img src={att.avatar_url!} alt={att.name} />
+                                  </Show>
+                                </div>
+                                <span class="event-attendee-name">
+                                  {att.name.split(" ")[0]}
+                                  {att.guest_count > 0 ? ` +${att.guest_count}` : ""}
+                                </span>
                               </div>
-                              <span class="event-attendee-name">{att.name.split(" ")[0]}</span>
-                            </div>
-                          )}
-                        </For>
-                      </div>
+                            )}
+                          </For>
+                        </div>
+                      </Show>
+
+                      <Show when={maybeAttendees().length > 0}>
+                        <div class="event-attendees-label" style="margin-top:12px">
+                          Maybe ({maybeAttendees().length})
+                        </div>
+                        <div class="event-attendees-scroll">
+                          <For each={maybeAttendees()}>
+                            {(att) => (
+                              <div
+                                class="event-attendee"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/user/${att.id}`);
+                                }}
+                              >
+                                <div class={`event-attendee-avatar event-attendee-maybe${att.avatar_url ? " avatar-photo" : ""}`}>
+                                  <Show when={att.avatar_url} fallback={getInitials(att.name)}>
+                                    <img src={att.avatar_url!} alt={att.name} />
+                                  </Show>
+                                </div>
+                                <span class="event-attendee-name">{att.name.split(" ")[0]}</span>
+                              </div>
+                            )}
+                          </For>
+                        </div>
+                      </Show>
                     </div>
                   </Show>
 
@@ -860,15 +1149,72 @@ const Events: Component = () => {
                     </div>
                   </Show>
 
-                  <Show when={user()}>
-                    <button
-                      class={`event-detail-rsvp ${isGoing() ? "event-detail-rsvp-going" : isFull() ? "event-detail-rsvp-full" : ""}`}
-                      onClick={() => toggleRsvp(ev().id)}
-                      disabled={isFull()}
-                    >
-                      {isGoing() ? "✓ Going" : isFull() ? "Full" : "RSVP to this event"}
-                    </button>
-                  </Show>
+                  {/* Comment Wall */}
+                  <div class="event-wall">
+                    <div class="event-wall-header">
+                      <span class="event-wall-title">The Wall</span>
+                      <span class="event-wall-count">{comments().length}</span>
+                    </div>
+
+                    <Show when={comments().length > 0}>
+                      <div class="event-wall-comments">
+                        <For each={comments()}>
+                          {(comment) => (
+                            <div class="event-wall-comment">
+                              <div class={`event-wall-avatar${comment.users?.avatar_url ? " avatar-photo" : ""}`}>
+                                <Show when={comment.users?.avatar_url} fallback={
+                                  getInitials(comment.users?.name ?? "?")
+                                }>
+                                  <img src={comment.users!.avatar_url!} alt="" />
+                                </Show>
+                              </div>
+                              <div class="event-wall-comment-body">
+                                <div class="event-wall-comment-header">
+                                  <span class="event-wall-comment-name">{comment.users?.name ?? "Someone"}</span>
+                                  <span class="event-wall-comment-time">{timeAgo(comment.created_at)}</span>
+                                </div>
+                                <div class="event-wall-comment-text">{comment.content}</div>
+                              </div>
+                              <Show when={comment.user_id === user()?.id}>
+                                <button
+                                  class="event-wall-delete"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteComment(comment.id);
+                                  }}
+                                >
+                                  &#10005;
+                                </button>
+                              </Show>
+                            </div>
+                          )}
+                        </For>
+                      </div>
+                    </Show>
+
+                    <Show when={user()}>
+                      <div class="event-wall-input">
+                        <input
+                          type="text"
+                          placeholder="Write on the wall..."
+                          value={commentText()}
+                          onInput={(e) => setCommentText(e.currentTarget.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && commentText().trim()) postComment();
+                          }}
+                        />
+                        <button
+                          class="event-wall-send"
+                          onClick={postComment}
+                          disabled={!commentText().trim() || postingComment()}
+                        >
+                          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </Show>
+                  </div>
                 </div>
               </div>
             </div>
@@ -888,11 +1234,9 @@ const Events: Component = () => {
                 onClick={() => photoInputRef?.click()}
               >
                 <Show when={photoPreview()} fallback={
-                  <div class="event-photo-upload-placeholder">
-                    <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
-                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0-6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm-7 13c.22-.72 3.31-2 7-2s6.78 1.28 7 2H5zm9-6.43V16h4v2H6v-2h4v-3.43c-3.61.46-7 2.06-8 4.43v2h20v-2c-1-2.37-4.39-3.97-8-4.43z M20 4V1h-2v3h-3v2h3v3h2V6h3V4h-3z" />
-                    </svg>
-                    <span>Add Photo</span>
+                  <div class="event-photo-upload-placeholder" style={`background:${getTheme(selectedTheme()).gradient}`}>
+                    <span style="font-size:36px">{getTheme(selectedTheme()).emoji}</span>
+                    <span style="color:rgba(255,255,255,0.9)">Add Photo</span>
                   </div>
                 }>
                   <img src={photoPreview()!} alt="Preview" class="event-photo-upload-preview" />
@@ -905,6 +1249,30 @@ const Events: Component = () => {
                   style="display:none"
                   onChange={handlePhotoSelect}
                 />
+              </div>
+
+              {/* Theme picker */}
+              <div class="sheet-field">
+                <label>Theme</label>
+                <div class="theme-picker">
+                  <For each={EVENT_THEMES}>
+                    {(t) => (
+                      <button
+                        type="button"
+                        class={`theme-dot ${selectedTheme() === t.id ? "theme-dot-active" : ""}`}
+                        style={`background:${t.gradient}`}
+                        onClick={() => setSelectedTheme(t.id)}
+                        title={t.label}
+                      >
+                        <Show when={selectedTheme() === t.id}>
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="white">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                          </svg>
+                        </Show>
+                      </button>
+                    )}
+                  </For>
+                </div>
               </div>
 
               <div class="sheet-field">
